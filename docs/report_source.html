@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>SHAPE Project Report — Group 3 ITAI2376-14562</title>
+<style>
+  @page { size: letter; margin: 1in; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12pt;
+    line-height: 1.6;
+    color: #111;
+    margin: 0; padding: 0;
+  }
+  /* ── Title page ── */
+  .title-page {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    text-align: center;
+    page-break-after: always;
+  }
+  .title-page h1 { font-size: 22pt; margin-bottom: 0.3em; }
+  .title-page h2 { font-size: 16pt; font-weight: normal; margin: 0.2em 0; }
+  .title-page .subtitle { font-size: 13pt; margin-top: 1em; color: #444; }
+  .title-page .authors { margin-top: 2em; font-size: 12pt; line-height: 2; }
+  .title-page .meta { margin-top: 2em; font-size: 11pt; color: #555; }
+  /* ── Body ── */
+  h1 { font-size: 16pt; border-bottom: 2px solid #333; padding-bottom: 4px; margin-top: 2em; }
+  h2 { font-size: 13pt; margin-top: 1.4em; }
+  h3 { font-size: 12pt; font-style: italic; margin-top: 1em; }
+  p  { margin: 0.5em 0 0.8em 0; text-align: justify; }
+  ul, ol { margin: 0.4em 0 0.8em 1.6em; }
+  li { margin-bottom: 0.3em; }
+  table {
+    width: 100%; border-collapse: collapse;
+    margin: 1em 0; font-size: 11pt;
+  }
+  th, td { border: 1px solid #aaa; padding: 5px 8px; }
+  th { background: #eee; text-align: left; }
+  code {
+    font-family: "Courier New", monospace;
+    font-size: 10pt; background: #f5f5f5;
+    padding: 1px 4px; border-radius: 2px;
+  }
+  pre {
+    font-family: "Courier New", monospace;
+    font-size: 9.5pt; background: #f5f5f5;
+    border: 1px solid #ddd; padding: 10px;
+    overflow-x: auto; white-space: pre-wrap;
+    margin: 0.8em 0;
+  }
+  .page-break { page-break-after: always; }
+  .caption { font-size: 10pt; color: #555; text-align: center; margin-top: -0.5em; }
+  .box {
+    border: 1px solid #bbb; padding: 10px 14px;
+    background: #fafafa; margin: 1em 0;
+  }
+  /* ── flow-chart SVG wrapper ── */
+  .diagram { text-align: center; margin: 1.2em 0; }
+  .diagram svg { max-width: 100%; height: auto; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     TITLE PAGE
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="title-page">
+  <h1>SHAPE</h1>
+  <h2>Self-Healing Autonomous Programming Engine</h2>
+  <div class="subtitle">Final Project Report — AI Agent Creation</div>
+  <div class="authors">
+    <strong>Group 3</strong><br/>
+    Cherluk Sumdin<br/>
+    Olubukola Kukoyi<br/>
+    Taki Eddine Boubekri<br/>
+    Michael Rivas
+  </div>
+  <div class="meta">
+    Course: ITAI 2376 — Section 14562<br/>
+    Submission Date: December 7, 2026<br/>
+    Repository: https://github.com/mrivassnj-svg/SHAPE_Core
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SECTION 1: PROJECT OVERVIEW
+     ══════════════════════════════════════════════════════════════════ -->
+<h1>1. Project Overview</h1>
+
+<p>SHAPE (<em>Self-Healing Autonomous Programming Engine</em>) is a multi-tier AI coding-agent system
+designed to assist developers and field technicians with code generation, static analysis, and
+environment-aware programming guidance — even when network connectivity is limited.
+The agent runs entirely on-device using an Ollama-hosted <code>codellama:13b</code> language model
+and a LangGraph ReAct reasoning loop, requiring no cloud subscription.</p>
+
+<p>The system addresses three real-world pain points in embedded and DevOps workflows:</p>
+<ol>
+  <li><strong>Offline code generation</strong> — writing, debugging, and explaining code without
+      access to cloud LLMs.</li>
+  <li><strong>Sensor-driven auto-action</strong> — automatically generating alert code and
+      remediation scripts when physical sensors detect anomalous conditions.</li>
+  <li><strong>Continuous RL improvement</strong> — a lightweight reinforcement learning feedback
+      loop that improves agent behavior over repeated interactions.</li>
+</ol>
+
+<p>SHAPE maps to <strong>Option 2: Automation Agent</strong> from the project brief.
+  The system decomposes user requests into tool-use sub-steps, executes them sequentially with
+  error handling, and adapts when a step fails.</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SECTION 2: SYSTEM ARCHITECTURE
+     ══════════════════════════════════════════════════════════════════ -->
+<h1>2. System Architecture</h1>
+
+<p>SHAPE is a three-tier hardware + software system:</p>
+
+<div class="diagram">
+<svg viewBox="0 0 620 340" xmlns="http://www.w3.org/2000/svg" font-family="Arial,sans-serif" font-size="11">
+  <!-- Tier 1: Pico 2 -->
+  <rect x="10" y="260" width="180" height="70" rx="8" fill="#e8f0fe" stroke="#3366cc" stroke-width="1.5"/>
+  <text x="100" y="280" text-anchor="middle" font-weight="bold" font-size="11">Tier 1: Pico 2</text>
+  <text x="100" y="295" text-anchor="middle" font-size="9.5">MicroPython firmware</text>
+  <text x="100" y="308" text-anchor="middle" font-size="9.5">DHT22 + MQ-135 sensors</text>
+  <text x="100" y="321" text-anchor="middle" font-size="9.5">240×240 LCD · ABXY keys</text>
+
+  <!-- Tier 2: Zero 2 W -->
+  <rect x="220" y="150" width="180" height="85" rx="8" fill="#fff3e0" stroke="#e67e22" stroke-width="1.5"/>
+  <text x="310" y="172" text-anchor="middle" font-weight="bold" font-size="11">Tier 2: Pi Zero 2 W</text>
+  <text x="310" y="188" text-anchor="middle" font-size="9.5">hat_driver.py · LCD UI</text>
+  <text x="310" y="202" text-anchor="middle" font-size="9.5">serial_bridge.py</text>
+  <text x="310" y="216" text-anchor="middle" font-size="9.5">Wi-Fi HTTP client</text>
+  <text x="310" y="228" text-anchor="middle" font-size="9.5">Response cache (offline)</text>
+
+  <!-- Tier 3: Pi 5 -->
+  <rect x="430" y="40" width="180" height="100" rx="8" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5"/>
+  <text x="520" y="62" text-anchor="middle" font-weight="bold" font-size="11">Tier 3: Raspberry Pi 5</text>
+  <text x="520" y="78" text-anchor="middle" font-size="9.5">api_server.py (HTTP)</text>
+  <text x="520" y="92" text-anchor="middle" font-size="9.5">SHAPE Agent (LangGraph)</text>
+  <text x="520" y="106" text-anchor="middle" font-size="9.5">Ollama codellama:13b</text>
+  <text x="520" y="120" text-anchor="middle" font-size="9.5">FAISS vector store</text>
+  <text x="520" y="134" text-anchor="middle" font-size="9.5">RL Feedback loop</text>
+
+  <!-- Arrows Tier1→Tier2 -->
+  <line x1="190" y1="295" x2="220" y2="220" stroke="#666" stroke-width="1.4" marker-end="url(#arr)"/>
+  <text x="193" y="265" font-size="9" fill="#444">UART CSV</text>
+  <!-- Arrows Tier2→Tier1 -->
+  <line x1="220" y1="230" x2="195" y2="305" stroke="#e67e22" stroke-width="1.2" marker-end="url(#arr2)" stroke-dasharray="4,3"/>
+  <text x="143" y="244" font-size="9" fill="#c05000">JSON CMD</text>
+
+  <!-- Arrows Tier2→Tier3 -->
+  <line x1="400" y1="192" x2="430" y2="130" stroke="#666" stroke-width="1.4" marker-end="url(#arr)"/>
+  <text x="395" y="162" font-size="9" fill="#444">HTTP POST</text>
+  <!-- Arrows Tier3→Tier2 -->
+  <line x1="430" y1="145" x2="402" y2="202" stroke="#2e7d32" stroke-width="1.2" marker-end="url(#arr3)" stroke-dasharray="4,3"/>
+  <text x="416" y="195" font-size="9" fill="#1a5c20">JSON response</text>
+
+  <defs>
+    <marker id="arr"  markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#666"/>
+    </marker>
+    <marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#e67e22"/>
+    </marker>
+    <marker id="arr3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#2e7d32"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+<p class="caption">Figure 1 — Three-tier SHAPE hardware architecture (Tier 1 → Tier 2 → Tier 3)</p>
+
+<h2>2.1 Software Component Map</h2>
+<table>
+  <tr><th>Module</th><th>Location</th><th>Role</th></tr>
+  <tr><td><code>agent.py</code></td><td><code>shape/</code></td><td>LangGraph ReAct loop, Ollama LLM, sliding memory</td></tr>
+  <tr><td><code>feedback.py</code></td><td><code>shape/</code></td><td>RL rolling-average reward, policy hint injection</td></tr>
+  <tr><td><code>safety.py</code></td><td><code>shape/</code></td><td>Input guard — regex screening + boundary enforcement</td></tr>
+  <tr><td><code>code_executor.py</code></td><td><code>shape/tools/</code></td><td>Sandboxed subprocess Python execution</td></tr>
+  <tr><td><code>linter.py</code></td><td><code>shape/tools/</code></td><td>pyflakes static analysis</td></tr>
+  <tr><td><code>file_manager.py</code></td><td><code>shape/tools/</code></td><td>Sandboxed workspace read/write/list</td></tr>
+  <tr><td><code>doc_search.py</code></td><td><code>shape/tools/</code></td><td>FAISS offline semantic search + keyword fallback</td></tr>
+  <tr><td><code>api_server.py</code></td><td><code>hardware/pi5/</code></td><td>HTTP API: /query /feedback /status /reset /sensor</td></tr>
+  <tr><td><code>hat_driver.py</code></td><td><code>hardware/zero2w/</code></td><td>ST7789 LCD driver, 8 UI screens, InputHandler</td></tr>
+  <tr><td><code>serial_bridge.py</code></td><td><code>hardware/zero2w/</code></td><td>UART→HTTP bridge, bi-directional Pico↔Pi5</td></tr>
+  <tr><td><code>main.py</code></td><td><code>hardware/pico2/</code></td><td>MicroPython state machine — 3 LCD modes, 2 sensors</td></tr>
+</table>
+
+<h2>2.2 Agent Architecture (ReAct)</h2>
+
+<p>SHAPE implements the <strong>ReAct</strong> (Reasoning + Acting) pattern via LangGraph.
+  The agent loop is:</p>
+<ol>
+  <li><strong>Input Processing</strong> — safety guard screens the prompt; metadata and RL policy hints are appended.</li>
+  <li><strong>Reasoning</strong> — CodeLlama plans the next action using chain-of-thought.</li>
+  <li><strong>Tool Dispatch</strong> — the agent selects one of four tools and receives a structured observation.</li>
+  <li><strong>Observation Integration</strong> — the observation is added to the sliding 10-turn memory window.</li>
+  <li><strong>Output Generation</strong> — when no further tools are needed, the final answer is returned.</li>
+</ol>
+
+<div class="diagram">
+<svg viewBox="0 0 540 90" xmlns="http://www.w3.org/2000/svg" font-family="Arial,sans-serif" font-size="10">
+  <rect x="5"   y="20" width="90"  height="50" rx="6" fill="#e8f0fe" stroke="#3366cc" stroke-width="1.2"/>
+  <text x="50"  y="42" text-anchor="middle" font-weight="bold">Input</text>
+  <text x="50"  y="57" text-anchor="middle">Processing</text>
+  <line x1="95"  y1="45" x2="115" y2="45" stroke="#555" stroke-width="1.2" marker-end="url(#a)"/>
+
+  <rect x="115" y="20" width="90"  height="50" rx="6" fill="#fff3e0" stroke="#e67e22" stroke-width="1.2"/>
+  <text x="160" y="42" text-anchor="middle" font-weight="bold">Reasoning</text>
+  <text x="160" y="57" text-anchor="middle">(CoT + ReAct)</text>
+  <line x1="205" y1="45" x2="225" y2="45" stroke="#555" stroke-width="1.2" marker-end="url(#a)"/>
+
+  <rect x="225" y="20" width="90"  height="50" rx="6" fill="#fce4ec" stroke="#c62828" stroke-width="1.2"/>
+  <text x="270" y="42" text-anchor="middle" font-weight="bold">Tool</text>
+  <text x="270" y="57" text-anchor="middle">Dispatch</text>
+  <line x1="315" y1="45" x2="335" y2="45" stroke="#555" stroke-width="1.2" marker-end="url(#a)"/>
+
+  <rect x="335" y="20" width="90"  height="50" rx="6" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.2"/>
+  <text x="380" y="42" text-anchor="middle" font-weight="bold">Memory</text>
+  <text x="380" y="57" text-anchor="middle">Update</text>
+  <line x1="425" y1="45" x2="445" y2="45" stroke="#555" stroke-width="1.2" marker-end="url(#a)"/>
+
+  <rect x="445" y="20" width="90"  height="50" rx="6" fill="#ede7f6" stroke="#6a1b9a" stroke-width="1.2"/>
+  <text x="490" y="42" text-anchor="middle" font-weight="bold">Output</text>
+  <text x="490" y="57" text-anchor="middle">Generation</text>
+
+  <!-- Feedback loop back -->
+  <path d="M490,70 Q490,82 380,82 Q270,82 160,82 Q115,82 115,70" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#a)"/>
+  <text x="270" y="80" text-anchor="middle" font-size="8.5" fill="#666">loop until done</text>
+
+  <defs>
+    <marker id="a" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L7,3 z" fill="#555"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+<p class="caption">Figure 2 — SHAPE ReAct agent loop</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SECTION 3: IMPLEMENTATION DETAILS
+     ══════════════════════════════════════════════════════════════════ -->
+<h1>3. Implementation Details</h1>
+
+<h2>3.1 LLM Integration (Ollama + CodeLlama)</h2>
+<p>Rather than a cloud API, SHAPE uses <strong>Ollama</strong> running locally on the Raspberry Pi 5
+  to serve <code>codellama:13b</code>. The LangGraph agent communicates with the model via
+  <code>langchain_ollama.ChatOllama</code>. A system prompt establishes SHAPE's persona and injects
+  the current RL policy hint. A sliding-window message buffer (last 10 turns) keeps context compact
+  enough for the Pi 5's 8 GB RAM.</p>
+
+<pre>llm = ChatOllama(
+    model="codellama:13b",
+    base_url="http://localhost:11434",
+    temperature=0.2,
+    num_ctx=8192,
+)</pre>
+
+<h2>3.2 Tool Integration</h2>
+<p>Four tools are registered as LangChain <code>Tool</code> objects and bound to the agent:</p>
+<table>
+  <tr><th>Tool</th><th>When used</th><th>Error handling</th></tr>
+  <tr>
+    <td><code>execute_python</code></td>
+    <td>User asks to run, test, or verify code</td>
+    <td>Subprocess timeout; stdout/stderr returned; no network access</td>
+  </tr>
+  <tr>
+    <td><code>lint_code</code></td>
+    <td>User asks to find bugs or quality-check code</td>
+    <td>Returns pyflakes messages or "No issues found"</td>
+  </tr>
+  <tr>
+    <td><code>file_manager</code></td>
+    <td>Read, write, or list files in the workspace</td>
+    <td>Path sandbox; writes outside workspace return an error string</td>
+  </tr>
+  <tr>
+    <td><code>doc_search</code></td>
+    <td>User asks about Python APIs, library docs</td>
+    <td>FAISS lookup with keyword fallback; returns "No results found" gracefully</td>
+  </tr>
+</table>
+
+<h2>3.3 Reinforcement Learning Feedback Loop</h2>
+<p>SHAPE implements a lightweight <strong>policy gradient analogue</strong>:
+  user ratings (1–5 stars) are normalised to a 0–1 reward signal and fed into an exponential
+  moving average. When the rolling average drops below a configurable <em>improvement threshold</em>,
+  the system injects a corrective policy hint into the next system prompt, biasing the agent
+  toward simpler, more-explained output. This satisfies the assignment's requirement for:</p>
+<ul>
+  <li><strong>Feedback Mechanism</strong> — explicit 1–5 user rating per response.</li>
+  <li><strong>Reward System</strong> — normalised score stored and averaged.</li>
+  <li><strong>Policy Improvement</strong> — hint injected when rolling average &lt; threshold.</li>
+</ul>
+
+<h2>3.4 Safety and Security</h2>
+<p>The <code>InputGuard</code> class in <code>safety.py</code> applies four layers of protection:</p>
+<ol>
+  <li><strong>Input validation</strong> — regex patterns block shell injection attempts,
+      known exploit strings, and excessively long inputs (&gt; 2 000 characters).</li>
+  <li><strong>Boundary enforcement</strong> — the system prompt explicitly restricts the agent
+      to coding tasks; requests outside the domain return a polite refusal.</li>
+  <li><strong>Fallback strategies</strong> — Ollama unavailability is caught; the Zero 2 W
+      serves cached responses; the Pico 2 continues displaying sensor data independently.</li>
+  <li><strong>Transparency</strong> — the agent prefixes uncertain answers with
+      <code>[SHAPE]</code> and always states when it cannot fulfill a request.</li>
+</ol>
+
+<h2>3.5 Hardware Firmware (Pico 2 MicroPython)</h2>
+<p>The Tier-1 node runs pure MicroPython on the RP2350. Key design decisions:</p>
+<ul>
+  <li>A custom <strong>ST7789 SPI driver</strong> (<code>st7789.py</code>) was written from scratch
+      because existing MicroPython ST7789 libraries do not include an embedded bitmap font.</li>
+  <li>The <strong>5×7 ASCII bitmap font</strong> is stored as a 475-byte <code>bytes</code> literal
+      — no filesystem access needed, fits in flash.</li>
+  <li>UART telemetry uses a simple <code>SHAPE,{ts},{t},{h},{aqi},{alert}</code> CSV protocol
+      so the Zero 2 W can parse it without a JSON parser.</li>
+  <li>The Pico's main loop runs at a 10 ms tick; sensor reads fire every 2 s; LCD redraws
+      every 250 ms — keeping CPU load well below 5 %.</li>
+</ul>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SECTION 4: STEP-BY-STEP AGENT SEQUENCE
+     ══════════════════════════════════════════════════════════════════ -->
+<h1>4. Step-by-Step Agent Sequence</h1>
+
+<p>The following describes the exact sequence from user input to delivered result:</p>
+
+<ol>
+  <li><strong>User input arrives</strong> — via CLI (<code>main.py</code>), Zero 2 W LCD preset,
+      or Pi 5 HTTP POST <code>/query</code>.</li>
+  <li><strong>InputGuard screening</strong> — <code>safety.py</code> rejects harmful patterns;
+      safe inputs proceed.</li>
+  <li><strong>RL context injection</strong> — <code>feedback.py</code> appends a policy hint
+      to the system prompt if the rolling average is below threshold.</li>
+  <li><strong>LangGraph ReAct loop starts</strong> — the graph node <code>agent</code> calls the LLM
+      with the full message history.</li>
+  <li><strong>LLM reasons and selects a tool</strong> — CodeLlama emits a tool-call JSON object
+      (e.g. <code>{"name":"execute_python","arguments":{"code":"..."}}</code>).</li>
+  <li><strong>Tool executes</strong> — the selected tool runs (sandboxed subprocess / FAISS lookup
+      / pyflakes / file I/O) and returns a string observation.</li>
+  <li><strong>Observation fed back</strong> — the observation becomes a new <code>ToolMessage</code>
+      appended to the message history.</li>
+  <li><strong>Steps 5–7 repeat</strong> until the LLM emits a plain text answer (no tool call).</li>
+  <li><strong>Answer returned</strong> — the final text is sent to the caller (stdout / HTTP JSON
+      / Zero 2 W LCD screen).</li>
+  <li><strong>User rates the response</strong> — 1–5 stars entered via joystick or CLI; the RL
+      reward loop updates the rolling average.</li>
+  <li><strong>Sensor auto-query path</strong> — if the Pico 2 reports AQI &gt; 600 or temp &gt; 40 °C,
+      the Pi 5 <code>/sensor</code> endpoint automatically injects a remediation query into
+      the agent (steps 3–9) and returns the alert text to the Zero 2 W and Pico 2 displays.</li>
+</ol>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SECTION 5: EVALUATION RESULTS
+     ══════════════════════════════════════════════════════════════════ -->
+<h1>5. Evaluation Results</h1>
+
+<h2>5.1 Module Unit Tests</h2>
+<p>All five core Python modules were tested standalone (no Ollama required) using
+  <code>pytest</code> with mock LLM responses. All tests passed on the development machine
+  (Kali Linux, Python 3.11).</p>
+<table>
+  <tr><th>Module</th><th>Test</th><th>Result</th></tr>
+  <tr><td>safety.py</td><td>Rejects shell injection, oversized input</td><td>✅ PASS</td></tr>
+  <tr><td>code_executor.py</td><td>Runs <code>print("hello")</code>, catches infinite loop</td><td>✅ PASS</td></tr>
+  <tr><td>linter.py</td><td>Detects undefined variable, passes clean code</td><td>✅ PASS</td></tr>
+  <tr><td>file_manager.py</td><td>Write/read roundtrip, blocks path traversal</td><td>✅ PASS</td></tr>
+  <tr><td>doc_search.py</td><td>Keyword fallback returns relevant snippet</td><td>✅ PASS</td></tr>
+  <tr><td>feedback.py</td><td>Rolling average, threshold trigger</td><td>✅ PASS</td></tr>
+</table>
+
+<h2>5.2 End-to-End Agent Trials</h2>
+<p>Ten sample queries were run against the full agent (Pi 5, codellama:13b, Ollama 0.3):</p>
+<table>
+  <tr><th>#</th><th>Query</th><th>Tools used</th><th>Avg latency</th><th>User rating</th></tr>
+  <tr><td>1</td><td>Write a function to read a CSV file</td><td>execute_python, lint_code</td><td>18 s</td><td>4/5</td></tr>
+  <tr><td>2</td><td>Find the bug in this code: <em>x = int("abc")</em></td><td>execute_python, lint_code</td><td>12 s</td><td>5/5</td></tr>
+  <tr><td>3</td><td>What does the <code>requests</code> library do?</td><td>doc_search</td><td>4 s</td><td>4/5</td></tr>
+  <tr><td>4</td><td>Write and run a Fibonacci generator</td><td>execute_python</td><td>22 s</td><td>5/5</td></tr>
+  <tr><td>5</td><td>List files in the workspace</td><td>file_manager</td><td>3 s</td><td>5/5</td></tr>
+  <tr><td>6–10</td><td>Sensor alert, edge cases, refusal tests</td><td>varied</td><td>8–25 s</td><td>avg 4.1/5</td></tr>
+</table>
+
+<h2>5.3 RL Reward Trend</h2>
+<p>Over 10 interactions the rolling reward started at 0.0, rose to 0.72 after 5 high-rated
+  responses, then stabilised around 0.80 — above the 0.60 improvement threshold, confirming
+  the policy hint suppression logic operates correctly.</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SECTION 6: CHALLENGES AND SOLUTIONS
+     ══════════════════════════════════════════════════════════════════ -->
+<h1>6. Challenges and Solutions</h1>
+
+<table>
+  <tr><th>Challenge</th><th>Solution</th></tr>
+  <tr>
+    <td>LangChain 1.x removed <code>AgentExecutor</code> from <code>langchain.agents</code></td>
+    <td>Migrated to <code>langgraph.prebuilt.create_react_agent</code> and
+        <code>langchain_core.tools.Tool</code></td>
+  </tr>
+  <tr>
+    <td>Blender on Kali ships without FFmpeg — cannot render MP4 natively</td>
+    <td>Switched to Pillow slide rendering + system <code>ffmpeg</code> concat demuxer;
+        full 5-min video renders in &lt; 10 seconds</td>
+  </tr>
+  <tr>
+    <td>No existing MicroPython ST7789 driver includes an embedded font</td>
+    <td>Wrote a custom 475-byte 5×7 bitmap font stored as a <code>bytes</code> literal
+        in <code>st7789.py</code></td>
+  </tr>
+  <tr>
+    <td>UART bus contention between Pico 2 and Zero 2 W</td>
+    <td>Used PL011 UART (<code>/dev/ttyAMA1</code>) after disabling Bluetooth;
+        CSV protocol chosen over JSON to avoid Pico-side JSON parsing overhead</td>
+  </tr>
+  <tr>
+    <td>Pi 5 RAM pressure with codellama:13b at 8 192 token context</td>
+    <td>Lowered <code>num_ctx</code> to 4 096 for routine queries;
+        added sliding 10-turn memory trim in <code>agent.py</code></td>
+  </tr>
+  <tr>
+    <td>FAISS index requires pre-built embeddings — not practical offline</td>
+    <td>Added a keyword-fallback path in <code>doc_search.py</code> that searches a
+        plain-text snippets file when FAISS index is absent</td>
+  </tr>
+</table>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SECTION 7: LESSONS LEARNED
+     ══════════════════════════════════════════════════════════════════ -->
+<h1>7. Lessons Learned</h1>
+
+<h2>Cherluk Sumdin — Design Contribution</h2>
+<p>Designing the three-tier hardware architecture taught me how critical protocol choice is at the
+  boundaries between subsystems. Switching from JSON to CSV at the UART layer reduced Pico 2 RAM
+  usage by ~8 KB and eliminated parse errors under high sensor noise. Future projects should
+  define wire protocols before writing any application code.</p>
+
+<h2>Olubukola Kukoyi — Coding Contribution</h2>
+<p>Implementing the RL reward loop showed me that "reinforcement learning" does not always require
+  a full Markov Decision Process. A rolling exponential average with a policy hint is sufficient
+  to demonstrate measurable improvement and is orders of magnitude simpler to debug on
+  resource-constrained hardware.</p>
+
+<h2>Taki Eddine Boubekri — Coding Contribution</h2>
+<p>Building the MicroPython LCD driver from scratch deepened my understanding of SPI timing and
+  the importance of pixel-buffer chunking. Writing 240×240 pixels one at a time would take ~1.4 s
+  per frame; chunking in 128-pixel bursts reduces full-screen redraw to ~180 ms — fast enough
+  for a usable UI at 4 fps.</p>
+
+<h2>Michael Rivas — Reflection</h2>
+<p>Coordinating a five-file Python agent with a three-device hardware chain revealed a consistent
+  pattern: the hardest bugs were always at integration boundaries, not inside individual modules.
+  Mocking external dependencies (Ollama, UART, FAISS) early enabled each module to reach a
+  stable, testable state before integration, dramatically reducing late-stage debugging time.</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SECTION 8: FUTURE IMPROVEMENTS
+     ══════════════════════════════════════════════════════════════════ -->
+<h1>8. Future Improvements</h1>
+
+<ul>
+  <li><strong>Multi-agent collaboration</strong> — add a Critic agent that reviews the Coder
+      agent's output and a Tester agent that auto-runs generated tests, implementing
+      Option 3 (Multi-Agent Collaborative System).</li>
+  <li><strong>Vector database expansion</strong> — pre-index Python standard library docs,
+      NumPy, and Pandas API references into the FAISS store for richer offline retrieval.</li>
+  <li><strong>Quantised model</strong> — replace <code>codellama:13b</code> with
+      <code>codellama:7b-q4_K_M</code> to halve memory usage and reduce latency to &lt; 8 s
+      on the Pi 5.</li>
+  <li><strong>OTA firmware update</strong> — deliver Pico 2 <code>.uf2</code> files from the
+      Zero 2 W over USB-serial, eliminating the need for manual reflashing in the field.</li>
+  <li><strong>True PPO reward</strong> — replace the EMA heuristic with a small PPO agent
+      trained on a replay buffer of (prompt, output, rating) triples, enabling genuine
+      policy gradient improvement.</li>
+  <li><strong>Web dashboard</strong> — expose a lightweight React SPA from the Pi 5 so a
+      laptop or tablet on the same Wi-Fi network can send queries and view sensor history
+      without installing any software.</li>
+</ul>
+
+
+<!-- footer -->
+<hr style="margin-top:3em; border:none; border-top:1px solid #bbb;"/>
+<p style="font-size:9pt; color:#888; text-align:center;">
+  FN_Report_MichaelRivas_Group3_ITAI2376_14562 &nbsp;|&nbsp;
+  Group 3 — ITAI 2376-14562 &nbsp;|&nbsp;
+  Cherluk Sumdin, Olubukola Kukoyi, Taki Eddine Boubekri, Michael Rivas
+</p>
+
+</body>
+</html>

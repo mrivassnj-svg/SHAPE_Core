@@ -1,0 +1,40 @@
+"""
+Pi 5 configuration for SHAPE agent.
+Upgraded from Pi 4: 8 GB RAM allows larger model + bigger context window.
+
+Group 3 — ITAI2376-14562
+"""
+
+# --- LLM (Pi 5 with 8 GB can run 13B comfortably) ---
+model: codellama:13b        # upgrade from 7B — better code quality
+ollama_url: http://localhost:11434
+temperature: 0.2
+context_window: 8192        # doubled from Pi 4 config (more RAM available)
+num_threads: 4              # Pi 5 has 4× Cortex-A76 cores
+
+# --- Agent ---
+memory_window: 10           # can hold more history with 8 GB
+max_iterations: 12
+verbose: false
+
+# --- Tools ---
+executor_timeout: 15        # Pi 5 is faster, still cap for safety
+workspace_dir: workspace
+
+# --- Doc search ---
+doc_index_path: data/doc_index
+docs_dir: data/docs
+doc_top_k: 5                # more results with better RAM
+
+# --- RL Feedback ---
+feedback_path: data/feedback.jsonl
+
+# --- Safety ---
+safety:
+  max_input_length: 12000
+  extra_blocked_patterns: []
+
+# --- Hardware API (served to Zero 2 W over Wi-Fi) ---
+api_host: 0.0.0.0           # listen on all interfaces
+api_port: 8765
+api_key: shape_local_key    # shared secret with Zero 2 W

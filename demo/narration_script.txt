@@ -1,0 +1,161 @@
+# ============================================================
+#  SHAPE Demo Video — Full Narration Script
+#  FN_Demo_MichaelRivas_Group3_ITAI2376_14562.mp4
+#  Target duration: 4:30 – 5:00
+#
+#  Group 3 | ITAI2376-14562
+#  Cherluk Sumdin, Olubukola Kukoyi, Taki Eddine Boubekri, Michael Rivas
+#
+#  FORMAT:
+#    [CUE HH:MM:SS – HH:MM:SS]  CLIP_ID
+#    Speaker / visual note
+#    "Narration text..."
+#
+#  Voice: Text-to-speech or recorded. Each cue block maps 1-to-1
+#         with a Blender scene strip in render_demo.py
+# ============================================================
+
+# ──────────────────────────────────────────────────────────
+# CLIP 00 — Opening Credits  [0:00 – 0:12]
+# ──────────────────────────────────────────────────────────
+[CUE 00:00:00 – 00:00:12]  CLIP_CREDITS
+Visual: Fade in from black. White text on dark background.
+        Group member names appear one by one.
+        Fade to SHAPE logo / ASCII banner.
+Voice: (none — soft ambient music only)
+
+# ──────────────────────────────────────────────────────────
+# CLIP 01 — What is SHAPE?  [0:12 – 1:00]
+# ──────────────────────────────────────────────────────────
+[CUE 00:00:12 – 00:01:00]  CLIP_INTRO
+Visual: Terminal window opens. SHAPE ASCII banner prints.
+        Cut to: Raspberry Pi 4 on a desk (or stock photo).
+        Overlay text: "Offline. Pocket-sized. Intelligent."
+
+Voice:
+"SHAPE is the Self-Healing Autonomous Programming Engine —
+ an AI coding agent that runs entirely offline on a Raspberry Pi.
+ No internet connection. No API keys. No monthly subscription.
+ Just a 55-dollar computer in your pocket, powered by an open-source
+ large language model called CodeLlama, running through Ollama.
+ SHAPE uses the ReAct reasoning pattern — Thought, Action, Observation —
+ to plan and execute coding tasks step by step, just like a human developer would."
+
+# ──────────────────────────────────────────────────────────
+# CLIP 02 — Why We Built It  [1:00 – 1:55]
+# ──────────────────────────────────────────────────────────
+[CUE 00:01:00 – 00:01:55]  CLIP_WHY
+Visual: Side-by-side: GitHub Copilot price card vs SHAPE cost = $0/mo.
+        Map showing remote locations: canyon, Antarctic station, submarine.
+        Bar chart from Notebook 2 animates in.
+
+Voice:
+"The problem with every existing AI coding tool is simple: they all need the cloud.
+ GitHub Copilot. ChatGPT. Azure OpenAI. All of them fail the moment you lose signal.
+ Think about a wildfire mapping crew writing sensor scripts in a canyon.
+ Or a naval engineer in a secure compartment.
+ Or a field researcher at a remote Antarctic station.
+ These are real scenarios where people need coding help the most —
+ and where today's tools are completely unavailable.
+ We decided to solve that. What if the assistant was already on the device?
+ That's SHAPE."
+
+# ──────────────────────────────────────────────────────────
+# CLIP 03 — The Fieldwork Device  [1:55 – 2:30]
+# ──────────────────────────────────────────────────────────
+[CUE 00:01:55 – 00:02:30]  CLIP_DEVICE
+Visual: Close-up of Raspberry Pi with labeled arrows:
+        USB-C power, microSD card, GPIO pins, HDMI.
+        Overlay: "85 × 56 mm — fits in a shirt pocket"
+        Cut to: a field researcher at a laptop (outdoor setting).
+
+Voice:
+"Our target device is the Raspberry Pi 4 with four gigabytes of RAM.
+ It's roughly the size of a credit card. It runs full 64-bit Linux.
+ Powered by a standard USB-C battery bank, it can operate all day in the field.
+ SHAPE turns this tiny computer into a fully capable AI coding assistant —
+ one that works exactly the same whether you have five bars of signal
+ or you're completely off the grid."
+
+# ──────────────────────────────────────────────────────────
+# CLIP 04 — Live Demo: Sensor Task  [2:30 – 3:30]
+# ──────────────────────────────────────────────────────────
+[CUE 00:02:30 – 00:03:30]  CLIP_LIVE_DEMO
+Visual: Screen recording of Notebook 3 running.
+        Cell output scrolls: sensor CSV → SHAPE processes → summary report.
+        Then broken-code cell: linter flags error, agent fixes it, re-runs.
+
+Voice:
+"Here SHAPE is working in a real fieldwork scenario.
+ We've loaded a CSV of sensor readings — temperature, humidity, CO2 —
+ exactly the kind of data a Pi-based logger would collect in the field.
+ We ask SHAPE in plain English: parse this file, compute statistics,
+ and flag any CO2 reading above four hundred thirty parts per million.
+ Watch the ReAct loop: SHAPE thinks, chooses the right tool,
+ runs the code, reads the output, and returns a clean report.
+ Now we give it broken code — a classic type error.
+ SHAPE lints it first, finds the bug, corrects it, runs it again.
+ This is what 'Self-Healing' means: it doesn't just generate code,
+ it validates and fixes it in a closed loop."
+
+# ──────────────────────────────────────────────────────────
+# CLIP 05 — Code Overview  [3:30 – 4:10]
+# ──────────────────────────────────────────────────────────
+[CUE 00:03:30 – 00:04:10]  CLIP_CODE
+Visual: VS Code or file tree shown. Each file highlighted as mentioned.
+        Quick scroll through agent.py showing the ReAct prompt.
+        Quick show of feedback.py rolling average calculation.
+
+Voice:
+"The codebase has five core modules.
+ agent.py wires together LangChain, Ollama, and four tools
+ inside a ReAct executor with a sliding-window conversation memory —
+ keeping RAM usage low on the Pi.
+ safety.py screens every request with regex patterns before it reaches the model —
+ blocking harmful commands, destructive shell calls, and out-of-scope requests.
+ feedback.py is our reinforcement learning component.
+ After each response, the user rates it one to five stars.
+ A rolling average of those scores generates a policy hint
+ that's prepended to the next prompt — nudging the agent to do better.
+ The four tools — code executor, linter, file manager, and doc search —
+ each handle one kind of action the agent can take."
+
+# ──────────────────────────────────────────────────────────
+# CLIP 06 — The Pitch  [4:10 – 4:50]
+# ──────────────────────────────────────────────────────────
+[CUE 00:04:10 – 00:04:50]  CLIP_PITCH
+Visual: Montage: Pi in a vest pocket. Terminal session. Cost = $0.
+        Final card: "SHAPE — Offline. Intelligent. Yours."
+
+Voice:
+"SHAPE proves that powerful AI assistance doesn't require the cloud.
+ A fifty-five dollar device, an open-source model, and a thoughtful architecture
+ is all it takes to put a capable coding agent anywhere on the planet.
+ For researchers, engineers, students, and developers who work at the edge —
+ SHAPE is the tool that goes with them.
+ Offline. Intelligent. Yours.
+ This is Group Three. Thank you."
+
+# ──────────────────────────────────────────────────────────
+# CLIP 07 — Closing Credits  [4:50 – 5:00]
+# ──────────────────────────────────────────────────────────
+[CUE 00:04:50 – 00:05:00]  CLIP_END
+Visual: Fade to black. White text:
+        "SHAPE — Group 3 | ITAI2376-14562"
+        "Cherluk Sumdin  ·  Olubukola Kukoyi"
+        "Taki Eddine Boubekri  ·  Michael Rivas"
+Voice: (none — music fades out)
+
+# ============================================================
+#  CLIP MANIFEST (for Blender / render_demo.py)
+#  clip_id         start_s  end_s   source_file
+# ============================================================
+# CLIP_CREDITS       0       12     title_card.png (generated)
+# CLIP_INTRO        12       60     screen_capture_nb1.mp4
+# CLIP_WHY          60      115     screen_capture_nb2.mp4 + cost_chart
+# CLIP_DEVICE       115     150     pi_photo.jpg / stock image
+# CLIP_LIVE_DEMO    150     210     screen_capture_nb3.mp4
+# CLIP_CODE         210     250     screen_capture_nb4.mp4
+# CLIP_PITCH        250     290     montage.mp4 / still images
+# CLIP_END          290     300     end_card.png (generated)
+# ============================================================

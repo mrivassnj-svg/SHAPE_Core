@@ -1,0 +1,33 @@
+# SHAPE configuration
+# Copy this file to config.yaml and adjust as needed.
+# No API keys required — SHAPE runs fully offline via Ollama.
+#
+# Group 3 — ITAI2376-14562
+
+# --- LLM ---
+model: codellama           # Ollama model name. Alternatives: mistral, phi3
+ollama_url: http://localhost:11434
+temperature: 0.2           # Lower = more deterministic code output
+context_window: 4096       # Tokens. Reduce to 2048 if Pi runs out of RAM.
+
+# --- Agent ---
+memory_window: 6           # Conversation turns kept in short-term memory
+max_iterations: 8          # Max ReAct loop steps per request
+verbose: false             # Set true to print agent reasoning steps
+
+# --- Tools ---
+executor_timeout: 10       # Seconds before code execution is killed
+workspace_dir: workspace   # Sandboxed directory for file_manager tool
+
+# --- Doc search ---
+doc_index_path: data/doc_index
+docs_dir: data/docs
+doc_top_k: 3               # Number of doc snippets returned per query
+
+# --- RL Feedback ---
+feedback_path: data/feedback.jsonl
+
+# --- Safety ---
+safety:
+  max_input_length: 8000
+  extra_blocked_patterns: []  # Add custom regex patterns here if needed

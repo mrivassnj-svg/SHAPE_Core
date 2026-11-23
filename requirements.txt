@@ -1,0 +1,33 @@
+# SHAPE — Python dependencies
+# Tested on Python 3.10+ | Raspberry Pi OS (64-bit) / Debian Bookworm
+# Compatible with LangChain 1.x + LangGraph 0.4+
+#
+# Group 3 — ITAI2376-14562
+# Members: Cherluk Sumdin, Olubukola Kukoyi, Taki Eddine Boubekri, Michael Rivas
+
+# --- Core LangChain / LangGraph stack ---
+langchain>=1.0.0
+langchain-core>=0.3.0
+langchain-community>=0.3.0
+langgraph>=0.4.0
+
+# --- Ollama integration (local LLM on Pi) ---
+langchain-ollama>=0.3.0
+
+# --- Offline vector search (doc_search tool) ---
+faiss-cpu>=1.7.4            # CPU-only FAISS — no CUDA needed on Pi
+sentence-transformers>=2.6.0  # all-MiniLM-L6-v2 embeddings (~80 MB)
+
+# --- Document loading (index builder) ---
+unstructured>=0.13.0        # DirectoryLoader markdown parsing
+
+# --- Linter tool ---
+pyflakes>=3.0.0
+
+# --- Config & utilities ---
+pyyaml>=6.0
+
+# --- Demo video generation (optional, not needed for agent itself) ---
+# gtts>=2.5.0               # online TTS (gTTS)
+# pyttsx3>=2.90             # offline TTS
+# pydub>=0.25.0             # audio duration fitting
