@@ -39,6 +39,7 @@ from hat_driver import (
     screen_response, screen_rate, screen_status,
 )
 from serial_bridge import SerialBridge
+import mic_recorder
 
 log = logging.getLogger("shape.zero2w")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -273,10 +274,64 @@ class ShapeTerminal:
             cached = self.cache.find(query)
             return f"[Fallback] {cached}" if cached else f"[Error] {exc}"
 
+    def _transcribe(self, wav_path) -> str:
+        """
+        POST a WAV file to the Pi 5 /transcribe endpoint.
+        Returns the transcribed text string, or an error message.
+        wav_path: pathlib.Path returned by mic_recorder.record_wav()
+        """
+        url = self.client.base_url + "/transcribe"
+        try:
+            data = wav_path.read_bytes()
+            req  = urllib.request.Request(
+                url, data=data,
+                headers={**self.client._headers(), "Content-Type": "audio/wav"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=35) as resp:
+                return json.loads(resp.read()).get("text", "")
+        except Exception as exc:
+            log.warning("Transcription failed: %s", exc)
+            return ""
+        finally:
+            try:
+                wav_path.unlink()
+            except Exception:
+                pass
+
     def _loop(self):
         """Main event loop — polls buttons and updates state."""
+        # Long-press detection: track when K3 was first pressed
+        _k3_down_at = None
+        LONG_PRESS_S = 1.0   # hold K3 for 1 s to trigger mic recording
+
         while True:
             key = self.buttons.wait_for_press(timeout=0.05)
+
+            # ── K3 long-press = voice input (hold K3 ≥ 1 s from any screen) ──
+            if key == "K3_DOWN":
+                _k3_down_at = time.time()
+            elif key == "K3_UP":
+                if _k3_down_at and (time.time() - _k3_down_at) >= LONG_PRESS_S:
+                    # Long press — record voice
+                    log.info("K3 long-press: starting voice recording")
+                    self.state = "THINKING"
+                    self._render()
+                    try:
+                        wav = mic_recorder.record_wav(5)
+                        text = self._transcribe(wav)
+                    except Exception as exc:
+                        log.warning("Mic record error: %s", exc)
+                        text = ""
+                    if text:
+                        self.current_q = text
+                        self.state = "QUERY"   # show transcription for confirmation
+                    else:
+                        self.state = "HOME"
+                    _k3_down_at = None
+                    self._render()
+                    continue
+                _k3_down_at = None
 
             if self.state == "HOME":
                 if key == "UP":

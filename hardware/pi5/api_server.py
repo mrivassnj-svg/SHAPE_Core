@@ -4,6 +4,15 @@ so the Zero 2 W can query it without SSH.
 
 Run:  python hardware/pi5/api_server.py --config hardware/pi5/config_pi5.yaml
 
+Endpoints:
+  POST /query        {"input": "..."}            → {"output": "..."}
+  POST /feedback     {"input","output","score"}   → {"ok": true}
+  GET  /status                                    → {"model","rl","avg_reward","status"}
+  POST /reset                                     → {"ok": true}
+  POST /sensor       {"source","temperature",...} → {"cmd","text","reward"}
+  POST /transcribe   raw WAV bytes (Content-Type: audio/wav)
+                                                  → {"text": "transcribed string"}
+
 Group 3 — ITAI2376-14562
 Cherluk Sumdin, Olubukola Kukoyi, Taki Eddine Boubekri, Michael Rivas
 """
@@ -13,7 +22,10 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
+import subprocess
 import sys
+import tempfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -33,6 +45,9 @@ _api_key = "shape_local_key"
 # Ring buffer of last 20 sensor readings from Pico 2
 _sensor_history: list = []
 _SENSOR_MAX = 20
+# Path to whisper.cpp binary and model (set via config or env)
+_WHISPER_BIN   = os.getenv("WHISPER_BIN",   "/home/pi/whisper.cpp/main")
+_WHISPER_MODEL = os.getenv("WHISPER_MODEL", "/home/pi/whisper.cpp/models/ggml-tiny.en.bin")
 
 
 class SHAPEHandler(BaseHTTPRequestHandler):
@@ -154,6 +169,36 @@ class SHAPEHandler(BaseHTTPRequestHandler):
                     "text":   "Sensors nominal",
                     "reward": rl.get("avg_score"),
                 })
+
+        elif path == "/transcribe":
+            # Receive raw WAV bytes, run whisper.cpp, return transcription text.
+            length = int(self.headers.get("Content-Length", 0))
+            wav_bytes = self.rfile.read(length)
+            if not wav_bytes:
+                return self._send_json(400, {"error": "Empty audio"})
+            if not Path(_WHISPER_BIN).exists():
+                return self._send_json(503, {"error": "whisper.cpp not installed on Pi 5"})
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                f.write(wav_bytes)
+                wav_path = f.name
+            try:
+                result = subprocess.run(
+                    [_WHISPER_BIN, "-m", _WHISPER_MODEL,
+                     "-f", wav_path, "--no-timestamps", "-otxt"],
+                    capture_output=True, text=True, timeout=30,
+                )
+                # whisper.cpp writes transcript to stdout
+                text = result.stdout.strip()
+                if not text:
+                    text = result.stderr.strip().splitlines()[-1] if result.stderr else ""
+                log.info("Transcribed: %s", text[:80])
+                self._send_json(200, {"text": text})
+            except subprocess.TimeoutExpired:
+                self._send_json(504, {"error": "Whisper timed out"})
+            except Exception as exc:
+                self._send_json(500, {"error": str(exc)})
+            finally:
+                os.unlink(wav_path)
 
         else:
             self._send_json(404, {"error": "Not found"})
