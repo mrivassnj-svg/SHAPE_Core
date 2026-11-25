@@ -293,7 +293,7 @@ def screen_thinking() -> Image.Image:
     d.rectangle([4, 4, 235, 235], outline=TEAL, width=2)
     d.text((120, 90),  "SHAPE",         font=_font(26, True), fill=YEL,  anchor="mm")
     d.text((120, 125), "Thinking…",     font=_font(20),       fill=TEAL, anchor="mm")
-    d.text((120, 158), "CodeLlama 13B", font=_font(13),       fill=GRY,  anchor="mm")
+    d.text((120, 158), "CodeLlama 7B", font=_font(13),       fill=GRY,  anchor="mm")
     d.text((120, 178), "Offline · Pi 5",font=_font(13),       fill=GRY,  anchor="mm")
     return img
 
