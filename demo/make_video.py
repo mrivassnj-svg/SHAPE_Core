@@ -133,7 +133,7 @@ def slide_what_is_shape() -> Image.Image:
     header_bar(d, "What is SHAPE?", BLUE)
     rows = [
         ("Offline AI coding agent",           "No internet. No API key. No cost.", TEAL),
-        ("Runs on Raspberry Pi 4",            "55 USD device — fits in your pocket.", GRN),
+        ("Runs on Raspberry Pi 5",            "80 USD device — fits in your pocket.", GRN),
         ("LLM: CodeLlama 7B via Ollama",      "Open-source, fully local.",           YEL),
         ("LangGraph ReAct reasoning",         "Thought → Action → Observation loop.", PINK),
         ("RL feedback loop",                  "1–5 star ratings improve responses.",  ORG),
@@ -143,19 +143,19 @@ def slide_what_is_shape() -> Image.Image:
         rect(d, 60, y, W-60, y+88, (20, 15, 50), col, 3)
         text(d, title, 120, y+28, col,  size=24, bold=True, anchor="lm")
         text(d, desc,  120, y+62, GRY,  size=20, anchor="lm")
-    subtitle_bar(d, "An offline AI coding agent running on Raspberry Pi 4")
+    subtitle_bar(d, "An offline AI coding agent running on Raspberry Pi 5")
     return img
 
 
 def slide_pi_board() -> Image.Image:
     img, d = new_slide()
-    header_bar(d, "Raspberry Pi 4 — The Hardware", GRN)
+    header_bar(d, "Raspberry Pi 5 — The Hardware", GRN)
     # PCB
     rect(d, 180, 100, W-180, 580, PCB, GRN, 6)
     # Components
     chips = [
-        (460, 310, 160, 130, (20,20,20), TEAL,  "BCM2711 SoC"),
-        (680, 260,  90,  90, (20,20,20), PINK,  "4 GB RAM"),
+        (460, 310, 160, 130, (20,20,20), TEAL,  "BCM2712 SoC"),
+        (680, 260,  90,  90, (20,20,20), PINK,  "8 GB RAM"),
         (460, 170, 480,  36, (30,30,30), YEL,   "GPIO × 40"),
         (220, 290,  55,  90, (100,100,110), WHT, "USB-A"),
         (220, 390,  55,  90, (100,100,110), WHT, "USB-A"),
@@ -170,7 +170,7 @@ def slide_pi_board() -> Image.Image:
     d.ellipse([218, 558, 242, 582], fill=GRN,   outline=GRN)
     # Badge
     rect(d, 180, 598, W-180, 648, INK, BLUE, 4)
-    text(d, "85 × 56 mm  —  fits in a shirt pocket  —  $55 USD",
+    text(d, "85 × 56 mm  —  fits in a shirt pocket  —  $80 USD",
          W//2, 623, TEAL, size=22, bold=True, anchor="mm")
     subtitle_bar(d, "Runs entirely offline — no internet required")
     return img
@@ -182,7 +182,7 @@ def slide_arch_diagram() -> Image.Image:
     nodes = [
         (W//6,     360, "Pico 2\nSensor I/O",  ORG,  YEL),
         (W//2,     360, "Zero 2 W\nRelay",      TEAL, BLUE),
-        (5*W//6,   360, "Pi 4\nSHAPE+LLM",     BLUE, PINK),
+        (5*W//6,   360, "Pi 5\nSHAPE+LLM",     BLUE, PINK),
     ]
     for nx, ny, lbl, fill, bord in nodes:
         pill(d, nx, ny, 220, 140, fill, bord, lbl, INK, 24)
@@ -203,7 +203,7 @@ def slide_arch_diagram() -> Image.Image:
     for dx, dy, desc in descs:
         for j, line in enumerate(desc.split("\n")):
             text(d, line, dx, dy+j*28, GRY, size=19, anchor="mm")
-    subtitle_bar(d, "Three-tier: Pico 2 → Zero 2 W → Pi 4 + SHAPE")
+    subtitle_bar(d, "Three-tier: Pico 2 → Zero 2 W → Pi 5 + SHAPE")
     return img
 
 
@@ -344,14 +344,14 @@ def slide_pitch() -> Image.Image:
     text(d, "Offline.  Intelligent.  Yours.",   W//2, 255, WHT,  size=36,  bold=True, anchor="mm")
     d.line([(120, 285), (W-120, 285)], fill=BLUE, width=3)
     bullets = [
-        ("$55 hardware  ·  $0 / month",        GRN),
+        ("$80 hardware  ·  $0 / month",        GRN),
         ("Works anywhere on Earth — or off it", TEAL),
         ("Gets smarter with every session",     TEAL),
         ("100% offline  ·  no data leaves the device", GRY),
     ]
     for i, (line, col) in enumerate(bullets):
         text(d, line, W//2, 340 + i * 68, col, size=26, anchor="mm")
-    subtitle_bar(d, "$55 hardware. $0/month. Works anywhere on Earth.")
+    subtitle_bar(d, "$80 hardware. $0/month. Works anywhere on Earth.")
     return img
 
 

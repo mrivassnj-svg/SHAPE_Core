@@ -29,14 +29,14 @@ Voice: (none — soft ambient music only)
 # ──────────────────────────────────────────────────────────
 [CUE 00:00:12 – 00:01:00]  CLIP_INTRO
 Visual: Terminal window opens. SHAPE ASCII banner prints.
-        Cut to: Raspberry Pi 4 on a desk (or stock photo).
+        Cut to: Raspberry Pi 5 on a desk (or stock photo).
         Overlay text: "Offline. Pocket-sized. Intelligent."
 
 Voice:
 "SHAPE is the Self-Healing Autonomous Programming Engine —
  an AI coding agent that runs entirely offline on a Raspberry Pi.
  No internet connection. No API keys. No monthly subscription.
- Just a 55-dollar computer in your pocket, powered by an open-source
+ Just an eighty-dollar computer in your pocket, powered by an open-source
  large language model called CodeLlama, running through Ollama.
  SHAPE uses the ReAct reasoning pattern — Thought, Action, Observation —
  to plan and execute coding tasks step by step, just like a human developer would."
@@ -64,16 +64,16 @@ Voice:
 # CLIP 03 — The Fieldwork Device  [1:55 – 2:30]
 # ──────────────────────────────────────────────────────────
 [CUE 00:01:55 – 00:02:30]  CLIP_DEVICE
-Visual: Close-up of Raspberry Pi with labeled arrows:
+Visual: Close-up of Raspberry Pi 5 with labeled arrows:
         USB-C power, microSD card, GPIO pins, HDMI.
         Overlay: "85 × 56 mm — fits in a shirt pocket"
         Cut to: a field researcher at a laptop (outdoor setting).
 
 Voice:
-"Our target device is the Raspberry Pi 4 with four gigabytes of RAM.
+"Our target device is the Raspberry Pi 5 with eight gigabytes of RAM.
  It's roughly the size of a credit card. It runs full 64-bit Linux.
  Powered by a standard USB-C battery bank, it can operate all day in the field.
- SHAPE turns this tiny computer into a fully capable AI coding assistant —
+ SHAPE turns this eighty-dollar computer into a fully capable AI coding assistant —
  one that works exactly the same whether you have five bars of signal
  or you're completely off the grid."
 
@@ -129,7 +129,7 @@ Visual: Montage: Pi in a vest pocket. Terminal session. Cost = $0.
 
 Voice:
 "SHAPE proves that powerful AI assistance doesn't require the cloud.
- A fifty-five dollar device, an open-source model, and a thoughtful architecture
+ An eighty-dollar device, an open-source model, and a thoughtful architecture
  is all it takes to put a capable coding agent anywhere on the planet.
  For researchers, engineers, students, and developers who work at the edge —
  SHAPE is the tool that goes with them.
