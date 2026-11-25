@@ -32,7 +32,7 @@ class DocSearchTool:
     Run:  python -m shape.tools.doc_search --build
     This embeds all .md/.txt files in docs_dir using a small sentence-
     transformer (all-MiniLM-L6-v2, ~80 MB) and saves a FAISS index.
-    The model runs on CPU — perfectly fine on a Pi 4.
+    The model runs on CPU — perfectly fine on a Pi 5.
     """
 
     name = "doc_search"

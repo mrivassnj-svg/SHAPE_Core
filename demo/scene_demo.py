@@ -78,7 +78,7 @@ NARRATION = [
     ("SHAPE — Self-Healing Autonomous Programming Engine",        0.5,   5.0),
     ("Group 3  |  ITAI2376-14562",                                1.5,   5.0),
     ("An offline AI coding agent. No internet. No API keys.",     6.0,  12.0),
-    ("Runs entirely on a Raspberry Pi 4.",                       12.5,  18.0),
+    ("Runs entirely on a Raspberry Pi 5.",                       12.5,  18.0),
     ("Powered by Ollama + CodeLlama 7B — offline.",              19.0,  25.0),
     ("ReAct loop: Thought → Action → Observation.",              26.0,  32.0),
     ("Three-tier: Pico 2 → Zero 2 W → Pi 4.",                   33.0,  40.0),
@@ -100,7 +100,7 @@ NARRATION = [
     ("feedback.py — RL reward loop from 1-5 star ratings.",      219.0, 225.0),
     ("safety.py — blocks harmful requests before the LLM.",      226.0, 232.0),
     ("Four tools: executor, linter, file manager, doc search.",   233.0, 239.0),
-    ("$55 hardware. $0/month. Works anywhere on Earth.",         251.0, 258.0),
+    ("$80 hardware. $0/month. Works anywhere on Earth.",         251.0, 258.0),
     ("Gets smarter the more you use it.",                        259.0, 265.0),
     ("Offline. Intelligent. Yours.",                             266.0, 273.0),
     ("Thank you — Group 3, ITAI2376-14562.",                     285.0, 299.0),
@@ -357,8 +357,8 @@ def build_act1():
     add_plane(pc, "PCB", 6.5, 4.0, 0, 0.3, C_PCB, 2.0)
     add_plane(pc, "PCBbord", 6.7, 4.2, 0, 0.3, C_GRN, 4.0, y=-0.001)
     # Components
-    _chip(pc, "SoC",  "BCM2711", -0.4, 0.3, 1.4, 1.4, (0.07,0.07,0.07,1), C_TEAL)
-    _chip(pc, "RAM",  "4 GB",     0.9, 0.7, 0.9, 0.9, (0.1,0.1,0.1,1),    C_PINK)
+    _chip(pc, "SoC",  "BCM2712", -0.4, 0.3, 1.4, 1.4, (0.07,0.07,0.07,1), C_TEAL)
+    _chip(pc, "RAM",  "8 GB",     0.9, 0.7, 0.9, 0.9, (0.1,0.1,0.1,1),    C_PINK)
     _chip(pc, "GPIO", "GPIO ×40", 0.0, 1.8, 3.8, 0.25,(0.15,0.15,0.15,1), C_YEL)
     _chip(pc, "USB1", "USB-A",   -2.9, 1.0, 0.5, 0.8, (0.6,0.6,0.65,1),  C_WHT)
     _chip(pc, "USB2", "USB-A",   -2.9, 0.1, 0.5, 0.8, (0.6,0.6,0.65,1),  C_WHT)
@@ -379,7 +379,7 @@ def build_act1():
             kf(led, "scale", pf+FPS,      Vector((1,1,1)))
     # Pi title badge
     box(pc, "PiBadge", 5.0, 0.6, 0, -1.9, INK, C_BLUE, bt=0.06)
-    add_text(pc, "Raspberry Pi 4  (4 GB)", "PiTtl", 0, -1.85, 0.26, C_WHT, bold=True)
+    add_text(pc, "Raspberry Pi 5  (4 GB)", "PiTtl", 0, -1.85, 0.26, C_WHT, bold=True)
     add_text(pc, "SHAPE + CodeLlama 7B  —  fully offline",
              "PiSub", 0, -2.3, 0.19, C_GRN)
 
@@ -391,7 +391,7 @@ def build_act1():
     for i,(lbl,nx,fill,bord) in enumerate([
         ("Pico 2\nSensor I/O", -4.0, C_ORG,  C_YEL),
         ("Zero 2 W\nRelay",     0.0, C_TEAL, C_BLUE),
-        ("Pi 4\nSHAPE+LLM",    4.0, C_BLUE, C_PINK),
+        ("Pi 5\nSHAPE+LLM",    4.0, C_BLUE, C_PINK),
     ]):
         box(ac, f"AN{i}", 2.4, 1.1, nx, 0.5,
             tuple(list(fill[:3])+[1]), tuple(list(bord[:3])+[1]), bt=0.08)
@@ -499,8 +499,8 @@ def build_act3():
     add_plane(c, "BigPCB",  10.5, 6.3, 0, 0.3, C_PCB, 2.0)
 
     # Chips
-    _chip(c, "BSoC",  "BCM2711 SoC", -1.5, 0.3, 2.8, 2.8, (0.07,0.07,0.07,1), C_TEAL)
-    _chip(c, "BRAM",  "4 GB LPDDR4",  2.0, 0.6, 1.8, 1.8, (0.1,0.1,0.1,1),    C_PINK)
+    _chip(c, "BSoC",  "BCM2712 SoC", -1.5, 0.3, 2.8, 2.8, (0.07,0.07,0.07,1), C_TEAL)
+    _chip(c, "BRAM",  "8 GB LPDDR4X",  2.0, 0.6, 1.8, 1.8, (0.1,0.1,0.1,1),    C_PINK)
     _chip(c, "BGPIO", "GPIO ×40",     0.0, 2.8, 8.0, 0.4,  (0.15,0.15,0.15,1), C_YEL)
     _chip(c, "BUSBC", "USB-C 5V",    -4.8,-0.4, 0.7, 1.0,  (0.6,0.6,0.65,1),  C_BLUE)
     _chip(c, "BHDMI", "HDMI",        -2.0,-2.3, 1.4, 0.65, (0.6,0.6,0.65,1),  C_WHT)
@@ -609,7 +609,7 @@ def build_act5():
     box(pc2, "PBox", 9.5, 5.8, 0, 0.3, (0.04,0.0,0.14,1), C_BLUE, bt=0.10)
     add_text(pc2, "SHAPE",                       "PP1", 0,  2.1, 0.80, C_YEL, bold=True)
     add_text(pc2, "Offline. Intelligent. Yours.","PP2", 0,  1.1, 0.30, C_WHT)
-    add_text(pc2, "$55 hardware  ·  $0 / month", "PP3", 0,  0.1, 0.27, C_GRN)
+    add_text(pc2, "$80 hardware  ·  $0 / month", "PP3", 0,  0.1, 0.27, C_GRN)
     add_text(pc2, "Works anywhere on Earth",     "PP4", 0, -0.4, 0.26, C_TEAL)
     add_text(pc2, "Gets smarter with every use", "PP5", 0, -0.9, 0.26, C_TEAL)
     add_text(pc2, "ITAI2376-14562  |  Group 3",  "PP6", 0, -1.8, 0.21, C_GRY)

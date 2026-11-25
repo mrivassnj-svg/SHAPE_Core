@@ -13,7 +13,7 @@
 
 ## What is SHAPE?
 
-SHAPE is an **offline AI coding agent** that runs entirely on a **Raspberry Pi 4**
+SHAPE is an **offline AI coding agent** that runs entirely on a **Raspberry Pi 5 (8 GB)**
 (or any Linux machine). It uses:
 
 - **LangChain** (ReAct agent pattern) for reasoning and tool orchestration
