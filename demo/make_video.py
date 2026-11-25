@@ -20,9 +20,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from moviepy import ImageClip, concatenate_videoclips
+
+try:
+    import numpy as np
+    from moviepy import ImageClip, concatenate_videoclips
+    _MOVIEPY = True
+except ImportError:
+    _MOVIEPY = False
 
 # ---------------------------------------------------------------------------
 # Canvas settings
