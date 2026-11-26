@@ -1,169 +1,165 @@
 """
-SHAPE — Self-Healing Autonomous Programming Engine
-Core agent module: ReAct pattern over Ollama (CodeLlama 7B, offline)
+shape.agent — SHAPE ReAct agent (canonical implementation).
 
-Uses LangGraph's create_react_agent (compatible with LangChain 1.x / LangGraph 0.4+).
+All notebooks import build_agent() from here.
+No notebook re-implements the loop.
+
+Depends on:
+    shape.prompts  — REACT_SYSTEM template
+    shape.parser   — parse_llm_output()
+    shape.memory   — make_history(), trimmed_messages()
+    shape.rewards  — FeedbackMemory
+    shape.safety   — InputGuard
+    shape.tools    — get_tools()
 
 Group 3 — ITAI2376-14562
 Members: Cherluk Sumdin, Olubukola Kukoyi, Taki Eddine Boubekri, Michael Rivas
 """
-
 from __future__ import annotations
 
 import logging
 from pathlib import Path
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.chat_history import InMemoryChatMessageHistory
-from langgraph.prebuilt import create_react_agent
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
-from shape.feedback import FeedbackMemory
-from shape.safety import InputGuard
-from shape.tools import get_tools
+from shape.memory  import make_history, trimmed_messages
+from shape.parser  import parse_llm_output
+from shape.prompts import REACT_SYSTEM
+from shape.rewards import FeedbackMemory
+from shape.safety  import InputGuard
+from shape.tools   import get_tools
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """\
-You are SHAPE, a Self-Healing Autonomous Programming Engine running on a
-Raspberry Pi. You help users write, debug, and improve code — entirely offline.
-
-Always think step-by-step before choosing a tool. If a tool fails, reflect on
-the error and try an alternative approach. Never fabricate tool outputs.
-When generating code, always lint it first, then execute it to verify it works.
-"""
-
 
 def build_agent(config: dict[str, Any]) -> "SHAPEAgent":
-    """Factory: build and return a fully wired SHAPEAgent from a config dict."""
+    """Factory — the only constructor notebooks should call."""
     return SHAPEAgent(config)
 
 
 class SHAPEAgent:
     """
-    Main SHAPE agent.
+    SHAPE ReAct agent.
+
+    One canonical implementation shared by all four notebooks and all tests.
 
     Architecture
     ------------
-    Input  → InputGuard (safety) → LangGraph ReAct agent (Ollama / CodeLlama)
-           → Tools (executor, linter, file manager, doc search)
-           → Output → FeedbackMemory (RL reward loop)
-
-    Uses InMemoryChatMessageHistory for sliding-window conversation memory.
+    user_input
+      → InputGuard.check()          (shape.safety)
+      → build SystemMessage          (shape.prompts + FeedbackMemory hint)
+      → for step in range(max_iter):
+            llm.invoke(messages)     (ChatOllama, plain text — no tool schemas)
+            parse_llm_output(text)   (shape.parser)
+            → "action"  → tool.invoke(input)   → Observation
+            → "final"   → break
+      → persist to InMemoryChatMessageHistory  (shape.memory)
+      → return answer
     """
 
     def __init__(self, config: dict[str, Any]) -> None:
-        self.config = config
-        self._setup_llm()
-        self._setup_tools()
-        self._setup_executor()
-        self._chat_history = InMemoryChatMessageHistory()
-        self.guard = InputGuard(config.get("safety", {}))
-        self.feedback = FeedbackMemory(
-            history_path=Path(config.get("feedback_path", "data/feedback.jsonl"))
+        self.config       = config
+        self.llm          = _build_llm(config)
+        self.tools_list   = get_tools(config)
+        self.tools_by_name = {t.name: t for t in self.tools_list}
+        self._history     = make_history()
+        self.guard        = InputGuard(config.get("safety", {}))
+        self.feedback     = FeedbackMemory(
+            Path(config.get("feedback_path", "data/feedback.jsonl"))
         )
-        logger.info("SHAPE agent initialised (model=%s)", config.get("model", "codellama"))
+        logger.info("SHAPEAgent ready (model=%s)", config.get("model", "codellama"))
 
-    # ------------------------------------------------------------------
-    # Setup helpers
-    # ------------------------------------------------------------------
-
-    def _setup_llm(self) -> None:
-        """Connect to local Ollama instance."""
-        try:
-            from langchain_ollama import OllamaLLM
-            self.llm = OllamaLLM(
-                model=self.config.get("model", "codellama"),
-                base_url=self.config.get("ollama_url", "http://localhost:11434"),
-                temperature=self.config.get("temperature", 0.2),
-                num_ctx=self.config.get("context_window", 4096),
-            )
-        except ImportError:
-            # Fallback to langchain-community Ollama wrapper
-            from langchain_community.llms import Ollama
-            self.llm = Ollama(
-                model=self.config.get("model", "codellama"),
-                base_url=self.config.get("ollama_url", "http://localhost:11434"),
-                temperature=self.config.get("temperature", 0.2),
-                num_ctx=self.config.get("context_window", 4096),
-            )
-
-    def _setup_tools(self) -> None:
-        self.tools = get_tools(self.config)
-
-    def _setup_executor(self) -> None:
-        self.executor = create_react_agent(
-            self.llm,
-            self.tools,
-        )
-
-    # ------------------------------------------------------------------
-    # Public interface
-    # ------------------------------------------------------------------
+    # ── public API ────────────────────────────────────────────────────
 
     def run(self, user_input: str) -> str:
-        """
-        Process a user coding request end-to-end.
-
-        1. Safety screen the input.
-        2. Retrieve past feedback to prepend policy hints.
-        3. Run the ReAct executor with conversation history.
-        4. Return the final answer.
-        """
-        # Step 1 — safety
+        """Process one user request through the full ReAct loop."""
         blocked, reason = self.guard.check(user_input)
         if blocked:
-            logger.warning("Input blocked: %s", reason)
-            return f"[SHAPE] I cannot help with that request. Reason: {reason}"
+            return f"[SHAPE] I cannot help with that. Reason: {reason}"
 
-        # Step 2 — inject RL policy hint
-        hint = self.feedback.get_policy_hint()
+        system_text = _build_system_prompt(self.tools_list, self.feedback)
+        window      = self.config.get("memory_window", 6)
+        max_iter    = self.config.get("max_iterations", 8)
+        verbose     = self.config.get("verbose", False)
 
-        # Build message list: system prompt + history + current input
-        messages: list = []
+        messages = (
+            [SystemMessage(content=system_text)]
+            + trimmed_messages(self._history, window)
+            + [HumanMessage(content=user_input)]
+        )
 
-        system_text = SYSTEM_PROMPT
-        if hint:
-            system_text += f"\n\n{hint}"
-        messages.append(SystemMessage(content=system_text))
-
-        # Append rolling conversation history (last memory_window turns)
-        window = self.config.get("memory_window", 6)
-        history_msgs = self._chat_history.messages[-(window * 2):]
-        messages.extend(history_msgs)
-
-        messages.append(HumanMessage(content=user_input))
-
-        # Step 3 — run agent
+        answer = "[SHAPE] Could not produce a response."
         try:
-            result = self.executor.invoke({"messages": messages})
-            # LangGraph returns {"messages": [...]} — last message is the answer
-            answer_msg = result["messages"][-1]
-            answer = answer_msg.content if hasattr(answer_msg, "content") else str(answer_msg)
-        except Exception as exc:  # noqa: BLE001
-            logger.error("Agent execution error: %s", exc)
-            answer = (
-                f"[SHAPE] An internal error occurred: {exc}\n"
-                "Please rephrase your request or simplify the task."
-            )
-            return answer
+            for i in range(max_iter):
+                response = self.llm.invoke(messages)
+                text     = response.content if hasattr(response, "content") else str(response)
+                if verbose:
+                    print(f"\n[Step {i+1}]\n{text}\n")
 
-        # Persist this exchange to history
-        self._chat_history.add_user_message(user_input)
-        self._chat_history.add_ai_message(answer)
+                parsed = parse_llm_output(text)
 
+                if parsed["type"] == "final":
+                    answer = parsed["answer"]
+                    break
+
+                tool      = self.tools_by_name.get(parsed["tool"])
+                observation = (
+                    tool.invoke(parsed["input"])
+                    if tool is not None
+                    else f"Error: unknown tool '{parsed['tool']}'. "
+                         f"Available: {list(self.tools_by_name)}"
+                )
+                messages += [
+                    AIMessage(content=text),
+                    HumanMessage(content=f"Observation: {observation}"),
+                ]
+        except Exception as exc:
+            logger.error("Agent error: %s", exc)
+            return f"[SHAPE] Internal error: {exc}"
+
+        self._history.add_user_message(user_input)
+        self._history.add_ai_message(answer)
         return answer
 
     def collect_feedback(self, user_input: str, answer: str, score: int) -> None:
-        """
-        Record user feedback (1–5 score) for the RL reward loop.
-        """
+        """Record a 1-5 user rating for the RL reward loop."""
         if not 1 <= score <= 5:
-            raise ValueError("Score must be between 1 and 5.")
+            raise ValueError("Score must be 1-5.")
         self.feedback.record({"input": user_input, "output": answer, "score": score})
-        logger.info("Feedback recorded: score=%d", score)
 
     def reset_session(self) -> None:
-        """Clear conversation memory for a fresh session."""
-        self._chat_history.clear()
-        logger.info("Session memory cleared.")
+        """Clear conversation memory for a new session."""
+        self._history.clear()
+
+
+# ── private helpers ───────────────────────────────────────────────────────────
+
+def _build_llm(config: dict[str, Any]):
+    """
+    Construct a ChatOllama instance.
+
+    IMPORTANT: Do NOT pass tools= to ChatOllama. CodeLlama does not support
+    Ollama's native tool-calling API (HTTP 400). Tool dispatch is handled
+    entirely in the ReAct loop above using parse_llm_output().
+    """
+    kwargs = dict(
+        model    = config.get("model",       "codellama"),
+        base_url = config.get("ollama_url",  "http://localhost:11434"),
+        temperature = config.get("temperature",  0.2),
+        num_ctx     = config.get("context_window", 4096),
+    )
+    try:
+        from langchain_ollama import ChatOllama
+        return ChatOllama(**kwargs)
+    except ImportError:
+        from langchain_community.chat_models import ChatOllama
+        return ChatOllama(**kwargs)
+
+
+def _build_system_prompt(tools_list, feedback: FeedbackMemory) -> str:
+    descriptions = "\n".join(f"- {t.name}: {t.description}" for t in tools_list)
+    names        = ", ".join(t.name for t in tools_list)
+    text         = REACT_SYSTEM.format(tool_descriptions=descriptions, tool_names=names)
+    hint         = feedback.get_policy_hint()
+    return text + f"\n\n{hint}" if hint else text
