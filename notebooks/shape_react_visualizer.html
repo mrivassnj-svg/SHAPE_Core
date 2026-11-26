@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SHAPE ReAct Visualizer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:#0d1117;color:#e6edf3;font-size:13px;line-height:1.6}
+header{background:#161b22;border-bottom:1px solid #30363d;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:15px;font-weight:700;color:#58a6ff;letter-spacing:.3px}
+header h1 span{color:#7c5cd8}
+.badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;letter-spacing:.5px}
+.badge-teach{background:#0d2d0d;color:#3fb950;border:1px solid #238636}
+.badge-live{background:#2d1210;color:#f85149;border:1px solid #da3633}
+.mode-switch{margin-left:auto;display:flex;gap:6px}
+.mode-btn{padding:5px 14px;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#8b949e;cursor:pointer;font-size:11px;font-weight:600;transition:all .15s}
+.mode-btn.active{background:#1f6feb;border-color:#1f6feb;color:#fff}
+.main{display:grid;grid-template-columns:1fr 340px;gap:0;height:calc(100vh - 50px);overflow:hidden}
+.canvas{padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.sidebar{background:#161b22;border-left:1px solid #30363d;display:flex;flex-direction:column;overflow:hidden}
+.controls{padding:12px 14px;border-bottom:1px solid #30363d;display:flex;flex-direction:column;gap:10px}
+.controls h3{font-size:11px;text-transform:uppercase;color:#8b949e;letter-spacing:.8px;margin-bottom:2px}
+.btn-row{display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 11px;border-radius:5px;border:1px solid #30363d;background:#21262d;color:#c9d1d9;cursor:pointer;font-size:11px;font-weight:600;transition:all .15s;user-select:none}
+.btn:hover{background:#30363d;color:#e6edf3}
+.btn.primary{background:#238636;border-color:#238636;color:#fff}
+.btn.primary:hover{background:#2ea043}
+.btn.danger{background:#21262d;border-color:#da3633;color:#f85149}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.select-row{display:flex;flex-direction:column;gap:4px}
+.select-row label{font-size:11px;color:#8b949e}
+.speed-row{display:flex;align-items:center;gap:8px}
+.speed-row label{font-size:11px;color:#8b949e;white-space:nowrap}
+input[type=range]{flex:1;accent-color:#1f6feb}
+.speed-val{font-size:11px;color:#58a6ff;min-width:28px;text-align:right}
+.scenario-tabs{display:flex;gap:4px;flex-wrap:wrap}
+.sc-btn{padding:3px 9px;border-radius:4px;border:1px solid #30363d;background:#21262d;color:#8b949e;cursor:pointer;font-size:10px;font-weight:600;transition:all .15s}
+.sc-btn.active{background:#1f6feb22;border-color:#1f6feb;color:#58a6ff}
+.trace-log{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+.trace-log h3{font-size:11px;text-transform:uppercase;color:#8b949e;letter-spacing:.8px;margin-bottom:4px;position:sticky;top:0;background:#161b22;padding:4px 0}
+.trace-entry{border-radius:5px;padding:7px 10px;border-left:3px solid transparent;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.trace-thought{background:#161b22;border-color:#8b949e;color:#8b949e}
+.trace-action{background:#0d1f0d;border-color:#3fb950;color:#3fb950}
+.trace-obs{background:#1a1a0d;border-color:#e3b341;color:#e3b341}
+.trace-final{background:#1a0d2d;border-color:#7c5cd8;color:#bc8cff}
+.trace-blocked{background:#2d0d0d;border-color:#f85149;color:#f85149}
+.trace-input{background:#0d1a2d;border-color:#1f6feb;color:#58a6ff}
+.trace-label{font-size:9px;text-transform:uppercase;letter-spacing:.8px;opacity:.7;margin-bottom:2px}
+.trace-text{font-family:"SF Mono","Fira Code",monospace;font-size:11px;word-break:break-word;white-space:pre-wrap}
+.arch{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;position:relative}
+.arch h2{font-size:12px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}
+.tier-row{display:flex;gap:8px;margin-bottom:8px;align-items:stretch}
+.tier{flex:1;border-radius:6px;border:1px solid #30363d;padding:8px 10px;background:#0d1117;transition:all .3s}
+.tier.active{box-shadow:0 0 0 2px #1f6feb;border-color:#1f6feb}
+.tier.tier3.active{box-shadow:0 0 0 2px #7c5cd8;border-color:#7c5cd8}
+.tier-label{font-size:9px;text-transform:uppercase;color:#8b949e;letter-spacing:.6px;margin-bottom:3px}
+.tier-name{font-size:11px;font-weight:700;color:#e6edf3}
+.tier-sub{font-size:10px;color:#8b949e;margin-top:1px}
+.arrow-row{display:flex;justify-content:center;align-items:center;color:#30363d;font-size:14px;margin-bottom:4px;gap:6px}
+.arrow-row span{font-size:10px;color:#8b949e}
+.loop-section{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;position:relative}
+.loop-section h2{font-size:12px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}
+.loop-steps{display:flex;flex-direction:column;gap:6px}
+.loop-step{border-radius:6px;border:1px solid #30363d;padding:8px 12px;background:#0d1117;transition:all .3s;position:relative}
+.loop-step.active{border-color:var(--step-color,#1f6feb);box-shadow:0 0 0 1px var(--step-color,#1f6feb)}
+.step-header{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.step-dot{width:8px;height:8px;border-radius:50%;background:#30363d;flex-shrink:0;transition:all .3s}
+.loop-step.active .step-dot{background:var(--step-color,#1f6feb);box-shadow:0 0 6px var(--step-color,#1f6feb)}
+.step-title{font-size:11px;font-weight:700;color:#e6edf3}
+.step-desc{font-size:10px;color:#8b949e;padding-left:16px}
+.step-code{font-family:"SF Mono","Fira Code",monospace;font-size:10px;padding-left:16px;margin-top:2px;white-space:pre-wrap;word-break:break-word;min-height:14px}
+.llm-box{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px}
+.llm-box h2{font-size:12px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
+.llm-output{font-family:"SF Mono","Fira Code",monospace;font-size:11px;line-height:1.7;white-space:pre-wrap;word-break:break-word;min-height:60px}
+.hl-thought{color:#8b949e}
+.hl-action-kw{color:#3fb950;font-weight:700}
+.hl-input-kw{color:#58a6ff}
+.hl-final-kw{color:#bc8cff;font-weight:700}
+.hl-answer{color:#bc8cff}
+.parser-box{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px}
+.parser-box h2{font-size:12px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
+.parser-branches{display:flex;gap:8px}
+.branch{flex:1;border-radius:5px;border:1px solid #30363d;padding:8px;background:#0d1117;text-align:center;transition:all .3s;font-size:10px}
+.branch.matched{box-shadow:0 0 0 2px var(--bc,#1f6feb);border-color:var(--bc,#1f6feb)}
+.branch-name{font-weight:700;font-size:11px;margin-bottom:2px}
+.branch-regex{font-family:"SF Mono","Fira Code",monospace;font-size:9px;color:#8b949e;margin-bottom:4px;word-break:break-all}
+.branch-result{font-size:10px;padding:2px 6px;border-radius:3px;display:inline-block;margin-top:2px}
+.stats-row{display:flex;gap:8px}
+.stat{flex:1;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px;text-align:center}
+.stat-val{font-size:18px;font-weight:700;color:#58a6ff}
+.stat-label{font-size:9px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px}
+.mode-notice{background:#0d2d0d;border:1px solid #238636;border-radius:6px;padding:8px 12px;font-size:11px;color:#3fb950;display:flex;gap:8px;align-items:flex-start}
+.mode-notice.live-notice{background:#2d1210;border-color:#da3633;color:#f85149}
+.cursor{display:inline-block;width:7px;height:12px;background:#58a6ff;animation:blink .7s step-end infinite;vertical-align:text-bottom;margin-left:1px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.iter-badge{position:absolute;top:8px;right:8px;font-size:9px;background:#1f6feb22;color:#58a6ff;border:1px solid #1f6feb44;border-radius:4px;padding:1px 6px}
+.tool-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;padding-left:16px}
+.tool-chip{font-size:10px;padding:2px 7px;border-radius:3px;border:1px solid #30363d;background:#21262d;color:#8b949e;transition:all .3s}
+.tool-chip.called{border-color:#3fb950;color:#3fb950;background:#0d2d0d}
+footer{text-align:center;padding:8px;font-size:11px;color:#484f58;border-top:1px solid #21262d;background:#161b22}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SHAPE <span>ReAct</span> Visualizer</h1>
+  <span class="badge badge-teach" id="modeBadge">TEACHING MODE</span>
+  <div class="mode-switch">
+    <button class="mode-btn active" id="btnTeach" onclick="setMode('teach')">Teaching</button>
+    <button class="mode-btn" id="btnLive" onclick="setMode('live')">Live Trace</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="canvas" id="canvas">
+
+    <div class="mode-notice" id="modeNotice">
+      <b>&#9873;</b>
+      <span id="modeText">Deterministic teaching mode — inputs are controlled test scenarios. No actual LLM is called. Safe for demonstration and grading.</span>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat"><div class="stat-val" id="statIter">0</div><div class="stat-label">Iterations</div></div>
+      <div class="stat"><div class="stat-val" id="statTools">0</div><div class="stat-label">Tool Calls</div></div>
+      <div class="stat"><div class="stat-val" id="statStep">&#8212;</div><div class="stat-label">Phase</div></div>
+      <div class="stat"><div class="stat-val" id="statStatus">Idle</div><div class="stat-label">Status</div></div>
+    </div>
+
+    <div class="arch">
+      <h2>Three-Tier Hardware Architecture</h2>
+      <div class="tier-row">
+        <div class="tier" id="tier1"><div class="tier-label">Tier 1 &middot; Pico 2</div><div class="tier-name">Sensor Node</div><div class="tier-sub">DHT22 &middot; MQ-135 &middot; ST7789</div></div>
+        <div class="tier" id="tier2"><div class="tier-label">Tier 2 &middot; Zero 2 W</div><div class="tier-name">Field Terminal</div><div class="tier-sub">HAT display &middot; keys &middot; voice</div></div>
+        <div class="tier tier3" id="tier3"><div class="tier-label">Tier 3 &middot; Pi 5</div><div class="tier-name">SHAPE Agent</div><div class="tier-sub">Ollama &middot; CodeLlama 7B</div></div>
+      </div>
+      <div class="arrow-row"><span>UART 115200 &rarr;</span><span style="margin:0 24px">HTTP Wi-Fi &rarr;</span><span>&larr; JSON reward</span></div>
+    </div>
+
+    <div class="llm-box">
+      <h2>LLM Raw Output <span style="font-weight:400;text-transform:none;font-size:10px;color:#8b949e">(CodeLlama text completion &mdash; plain text, no tool schemas)</span></h2>
+      <div class="llm-output" id="llmOutput"><span style="color:#30363d">Waiting for execution&hellip;</span></div>
+    </div>
+
+    <div class="parser-box">
+      <h2>Parser Engine &mdash; _parse_llm_output()</h2>
+      <div class="parser-branches">
+        <div class="branch" id="branchFinal" style="--bc:#7c5cd8">
+          <div class="branch-name" style="color:#bc8cff">Final Answer</div>
+          <div class="branch-regex">re.search(r"Final Answer\s*:\s*(.+)", text, DOTALL)</div>
+          <div class="branch-result" id="brFinalResult" style="background:#1a0d2d;color:#8b949e">&#8212;</div>
+        </div>
+        <div class="branch" id="branchAction" style="--bc:#3fb950">
+          <div class="branch-name" style="color:#3fb950">Action</div>
+          <div class="branch-regex">re.search(r"Action\s*:\s*(.+)", text)</div>
+          <div class="branch-result" id="brActionResult" style="background:#0d2d0d;color:#8b949e">&#8212;</div>
+        </div>
+        <div class="branch" id="branchFallback" style="--bc:#e3b341">
+          <div class="branch-name" style="color:#e3b341">Fallback</div>
+          <div class="branch-regex">plain text &rarr; Final Answer</div>
+          <div class="branch-result" id="brFallbackResult" style="background:#1a1a0d;color:#8b949e">&#8212;</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="loop-section">
+      <div class="iter-badge" id="iterBadge">Step 0</div>
+      <h2>ReAct Execution Trace</h2>
+      <div class="loop-steps" id="loopSteps">
+        <div class="loop-step" id="ls-guard" style="--step-color:#e3b341">
+          <div class="step-header"><div class="step-dot"></div><div class="step-title">InputGuard.check()</div></div>
+          <div class="step-desc">Pre-LLM regex screen &mdash; blocked patterns, out-of-scope, length limit (&lt;1 ms)</div>
+          <div class="step-code" id="lc-guard"></div>
+        </div>
+        <div class="loop-step" id="ls-system" style="--step-color:#1f6feb">
+          <div class="step-header"><div class="step-dot"></div><div class="step-title">Build SystemMessage</div></div>
+          <div class="step-desc">REACT_SYSTEM + tool descriptions + RL policy hint (injected if avg score available)</div>
+          <div class="step-code" id="lc-system"></div>
+        </div>
+        <div class="loop-step" id="ls-llm" style="--step-color:#58a6ff">
+          <div class="step-header"><div class="step-dot"></div><div class="step-title">llm.invoke(messages)</div></div>
+          <div class="step-desc">ChatOllama forward pass &mdash; plain message list only, no tool schemas passed</div>
+          <div class="step-code" id="lc-llm"></div>
+        </div>
+        <div class="loop-step" id="ls-parse" style="--step-color:#3fb950">
+          <div class="step-header"><div class="step-dot"></div><div class="step-title">_parse_llm_output()</div></div>
+          <div class="step-desc">Regex extract: Final Answer | Action + Input | plain text fallback</div>
+          <div class="step-code" id="lc-parse"></div>
+        </div>
+        <div class="loop-step" id="ls-tool" style="--step-color:#e3b341">
+          <div class="step-header"><div class="step-dot"></div><div class="step-title">tool.invoke(input)</div></div>
+          <div class="step-desc">tools_by_name[tool_name] dispatch &mdash; O(1) dict lookup</div>
+          <div class="step-code" id="lc-tool"></div>
+          <div class="tool-chips">
+            <span class="tool-chip" id="chip-linter">linter</span>
+            <span class="tool-chip" id="chip-code_executor">code_executor</span>
+            <span class="tool-chip" id="chip-file_manager">file_manager</span>
+            <span class="tool-chip" id="chip-doc_search">doc_search</span>
+          </div>
+        </div>
+        <div class="loop-step" id="ls-obs" style="--step-color:#e3b341">
+          <div class="step-header"><div class="step-dot"></div><div class="step-title">Observation appended</div></div>
+          <div class="step-desc">HumanMessage("Observation: &hellip;") added to messages &rarr; next iteration</div>
+          <div class="step-code" id="lc-obs"></div>
+        </div>
+        <div class="loop-step" id="ls-final" style="--step-color:#7c5cd8">
+          <div class="step-header"><div class="step-dot"></div><div class="step-title">Final Answer</div></div>
+          <div class="step-desc">Loop breaks &mdash; answer returned, history updated, RL feedback prompt shown</div>
+          <div class="step-code" id="lc-final"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="sidebar">
+    <div class="controls">
+      <h3>Controls</h3>
+      <div class="btn-row">
+        <button class="btn primary" id="btnRun" onclick="runDemo()">&#9654; Run</button>
+        <button class="btn" id="btnStep" onclick="stepDemo()">&#9197; Step</button>
+        <button class="btn" id="btnPause" onclick="pauseDemo()" disabled>&#9646;&#9646; Pause</button>
+        <button class="btn danger" onclick="resetDemo()">&#8635; Reset</button>
+      </div>
+      <div class="select-row">
+        <label>Scenario</label>
+        <div class="scenario-tabs" id="scenarioTabs"></div>
+      </div>
+      <div class="speed-row">
+        <label>Speed</label>
+        <input type="range" id="speedSlider" min="1" max="10" value="5" oninput="updateSpeed()"/>
+        <span class="speed-val" id="speedVal">5&times;</span>
+      </div>
+    </div>
+    <div class="trace-log" id="traceLog"><h3>Execution Log</h3></div>
+  </div>
+</div>
+
+<footer>Made with IBM Bob &mdash; SHAPE Group 3 | ITAI2376-14562</footer>
+
+<script>
+var SCENARIOS={
+  teach1:{label:"Code Gen",mode:"teach",steps:[
+    {phase:"guard",result:"ALLOWED",detail:"No blocked patterns matched."},
+    {phase:"system",result:"ok",detail:"4 tools described. No RL hint (< 5 records)."},
+    {phase:"llm",raw:"Thought: I should lint the code before running it.\nAction: linter\nAction Input: def is_palindrome(s):\n    s = s.lower().replace(\" \",\"\")\n    return s == s[::-1]"},
+    {phase:"parse",result:"action",tool:"linter",inp:"def is_palindrome(s): …"},
+    {phase:"tool",tool:"linter",obs:"[Linter] No issues found."},
+    {phase:"obs",obs:"[Linter] No issues found."},
+    {phase:"llm",raw:"Thought: Lint passed. Now execute with test cases.\nAction: code_executor\nAction Input: def is_palindrome(s):\n    s = s.lower().replace(\" \",\"\")\n    return s == s[::-1]\n\nprint(is_palindrome(\"racecar\"))   # True\nprint(is_palindrome(\"hello\"))     # False\nprint(is_palindrome(\"A man a plan a canal Panama\"))  # True"},
+    {phase:"parse",result:"action",tool:"code_executor",inp:"def is_palindrome…"},
+    {phase:"tool",tool:"code_executor",obs:"True\nFalse\nTrue"},
+    {phase:"obs",obs:"True\nFalse\nTrue"},
+    {phase:"llm",raw:"Thought: I now have the final answer.\nFinal Answer: def is_palindrome(s):\n    s = s.lower().replace(\" \",\"\")\n    return s == s[::-1]\n\nAll 3 tests passed."},
+    {phase:"parse",result:"final",answer:"def is_palindrome(s): … — All 3 tests passed."},
+    {phase:"final",answer:"def is_palindrome(s):\n    s = s.lower().replace(\" \",\"\")\n    return s == s[::-1]\n\nAll 3 tests passed."}
+  ]},
+  teach2:{label:"Self-Heal",mode:"teach",steps:[
+    {phase:"guard",result:"ALLOWED",detail:"No blocked patterns matched."},
+    {phase:"system",result:"ok",detail:"RL hint active: avg score 2.1 — correction hint injected."},
+    {phase:"llm",raw:"Thought: Let me lint the code to identify the type error.\nAction: linter\nAction Input: vals = []\nfor row in reader:\n    vals.append(row['temp'])  # bug: str not float\nprint(sum(vals)/len(vals))"},
+    {phase:"parse",result:"action",tool:"linter",inp:"vals.append(row['temp']) …"},
+    {phase:"tool",tool:"linter",obs:"<code>:3: type error likely — sum() cannot operate on str values."},
+    {phase:"obs",obs:"Lint: vals contains str values — float() cast required."},
+    {phase:"llm",raw:"Thought: Bug found — missing float() cast. Fix and re-run.\nAction: code_executor\nAction Input: vals = []\nfor row in reader:\n    vals.append(float(row['temp']))  # fixed\nprint(sum(vals)/len(vals))"},
+    {phase:"parse",result:"action",tool:"code_executor",inp:"vals.append(float(row['temp']))"},
+    {phase:"tool",tool:"code_executor",obs:"22.84"},
+    {phase:"obs",obs:"22.84"},
+    {phase:"llm",raw:"Thought: I now have the final answer.\nFinal Answer: Bug was missing float() cast on row['temp']. Fixed: vals.append(float(row['temp']))\nResult: 22.84"},
+    {phase:"parse",result:"final",answer:"Bug: float() cast missing. Fixed. Result: 22.84"},
+    {phase:"final",answer:"Bug: float() cast missing.\nFixed: vals.append(float(row['temp']))\nResult: 22.84"}
+  ]},
+  teach3:{label:"Safety Block",mode:"teach",steps:[
+    {phase:"guard",result:"BLOCKED",detail:"Pattern matched: direct OS system call. Request rejected before LLM — 0 Ollama compute used."},
+    {phase:"final",answer:"[SHAPE] I cannot help with that. Reason: Request contains a prohibited pattern: direct OS system call."}
+  ]},
+  teach4:{label:"Doc Search",mode:"teach",steps:[
+    {phase:"guard",result:"ALLOWED",detail:"No blocked patterns matched."},
+    {phase:"system",result:"ok",detail:"4 tools. No RL hint."},
+    {phase:"llm",raw:"Thought: I should search the offline docs for csv.DictReader examples.\nAction: doc_search\nAction Input: Python csv DictReader example"},
+    {phase:"parse",result:"action",tool:"doc_search",inp:"Python csv DictReader example"},
+    {phase:"tool",tool:"doc_search",obs:"[docs/python_csv.md] reader = csv.DictReader(f) — returns rows as dicts keyed by header names."},
+    {phase:"obs",obs:"[docs/python_csv.md] csv.DictReader(f) returns dict rows."},
+    {phase:"llm",raw:"Thought: I now have the final answer.\nFinal Answer: Use csv.DictReader(f) to read CSV rows as dicts:\n\nwith open('file.csv') as f:\n    for row in csv.DictReader(f):\n        print(row['column'])"},
+    {phase:"parse",result:"final",answer:"Use csv.DictReader(f) to read CSV rows as dicts."},
+    {phase:"final",answer:"Use csv.DictReader(f) to read CSV rows as dicts:\n\nwith open('file.csv') as f:\n    for row in csv.DictReader(f):\n        print(row['column'])"}
+  ]},
+  teach5:{label:"AQI Alert",mode:"teach",steps:[
+    {phase:"guard",result:"ALLOWED",detail:"Sensor alert query passed safety check."},
+    {phase:"system",result:"ok",detail:"Auto-query from /sensor endpoint: AQI=648 triggered."},
+    {phase:"llm",raw:"Thought: AQI is 648 which is dangerous. I should provide immediate action advice.\nFinal Answer: AQI=648 is HAZARDOUS (>600 threshold). Immediate actions:\n1. Evacuate or ventilate the area\n2. Silence any open combustion sources\n3. Run alert script to log the event"},
+    {phase:"parse",result:"final",answer:"AQI=648 HAZARDOUS. Evacuate/ventilate. Log event."},
+    {phase:"final",answer:"AQI=648 is HAZARDOUS (>600 threshold).\n1. Evacuate or ventilate the area\n2. Silence combustion sources\n3. Log the event\n\nNote: alert was triggered by deterministic threshold, not LLM."}
+  ]},
+  live:{label:"Live Trace",mode:"live",steps:[]}
+};
+
+var currentMode='teach',currentSc='teach1',stepIndex=0,iterCount=0,toolCallCount=0,running=false,paused=false,timer=null,baseDelay=360;
+
+function init(){buildScenarioTabs();updateSpeed();resetDemo();}
+
+function buildScenarioTabs(){
+  var el=document.getElementById('scenarioTabs');el.innerHTML='';
+  Object.keys(SCENARIOS).forEach(function(k){
+    var sc=SCENARIOS[k];
+    var b=document.createElement('button');
+    b.className='sc-btn'+(k===currentSc?' active':'');
+    b.textContent=sc.label;
+    b.onclick=(function(key){return function(){currentSc=key;resetDemo();buildScenarioTabs();};})(k);
+    el.appendChild(b);
+  });
+}
+
+function updateSpeed(){
+  var v=+document.getElementById('speedSlider').value;
+  baseDelay=Math.round(1800/v);
+  document.getElementById('speedVal').textContent=v+'\u00d7';
+}
+
+function setMode(m){
+  currentMode=m;
+  document.getElementById('btnTeach').className='mode-btn'+(m==='teach'?' active':'');
+  document.getElementById('btnLive').className='mode-btn'+(m==='live'?' active':'');
+  document.getElementById('modeBadge').textContent=m==='teach'?'TEACHING MODE':'LIVE TRACE MODE';
+  document.getElementById('modeBadge').className='badge '+(m==='teach'?'badge-teach':'badge-live');
+  document.getElementById('modeNotice').className='mode-notice'+(m==='live'?' live-notice':'');
+  document.getElementById('modeText').textContent=m==='teach'
+    ?'Deterministic teaching mode \u2014 inputs are controlled test scenarios. No actual LLM is called. Safe for demonstration and grading.'
+    :'Live trace mode \u2014 this panel observes actual SHAPEAgent.run() execution. Output reflects real CodeLlama responses via Ollama. Evidence of actual agent execution.';
+  if(m==='live')currentSc='live';else if(currentSc==='live')currentSc='teach1';
+  resetDemo();buildScenarioTabs();
+}
+
+function resetDemo(){
+  clearTimeout(timer);running=false;paused=false;stepIndex=0;iterCount=0;toolCallCount=0;
+  updateStats(0,0,'\u2014','Idle');clearAllActive();
+  document.getElementById('llmOutput').innerHTML='<span style="color:#30363d">Waiting for execution\u2026</span>';
+  clearParser();clearLog();
+  ['tier1','tier2','tier3'].forEach(function(id){document.getElementById(id).classList.remove('active');});
+  document.getElementById('btnRun').disabled=false;
+  document.getElementById('btnStep').disabled=false;
+  document.getElementById('btnPause').disabled=true;
+  document.getElementById('btnPause').textContent='\u23f8 Pause';
+  document.getElementById('iterBadge').textContent='Step 0';
+  resetToolChips();
+  ['lc-guard','lc-system','lc-llm','lc-parse','lc-tool','lc-obs','lc-final'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.textContent='';
+  });
+  if(currentMode==='live'){
+    addLog('live','Live Mode','Connect your notebook kernel and run the agent. Verbose output from shape/agent.py will populate this log in real time.');
+  }
+}
+
+function resetToolChips(){
+  ['linter','code_executor','file_manager','doc_search'].forEach(function(t){
+    var c=document.getElementById('chip-'+t);if(c)c.className='tool-chip';
+  });
+}
+
+function runDemo(){
+  if(currentMode==='live'){addLog('live','Live Mode','Switch to a Teaching scenario to run the deterministic simulation.');return;}
+  running=true;paused=false;
+  document.getElementById('btnPause').disabled=false;
+  document.getElementById('btnRun').disabled=true;
+  scheduleNext();
+}
+
+function scheduleNext(){
+  if(!running||paused)return;
+  timer=setTimeout(function(){if(!paused){executeStep();if(running)scheduleNext();}},baseDelay);
+}
+
+function stepDemo(){
+  if(currentMode==='live')return;
+  paused=true;running=false;clearTimeout(timer);
+  document.getElementById('btnPause').disabled=true;
+  document.getElementById('btnRun').disabled=false;
+  executeStep();
+}
+
+function pauseDemo(){
+  paused=!paused;
+  document.getElementById('btnPause').textContent=paused?'\u25b6 Resume':'\u23f8 Pause';
+  if(!paused){running=true;scheduleNext();}
+}
+
+function executeStep(){
+  var sc=SCENARIOS[currentSc];
+  if(!sc||stepIndex>=sc.steps.length){finishRun();return;}
+  var s=sc.steps[stepIndex++];
+  document.getElementById('iterBadge').textContent='Step '+stepIndex+' / '+sc.steps.length;
+  clearAllActive();
+
+  if(s.phase==='guard'){
+    activateStep('ls-guard');
+    if(s.result==='BLOCKED'){
+      setCode('lc-guard','BLOCKED: '+s.detail,'#f85149');
+      addLog('blocked','InputGuard','BLOCKED \u2014 '+s.detail);
+      updateStats(iterCount,toolCallCount,'Guard','Blocked');
+    }else{
+      setCode('lc-guard','\u2713 ALLOWED \u2014 '+s.detail,'#3fb950');
+      addLog('action','InputGuard','\u2713 ALLOWED \u2014 '+s.detail);
+      hlTier('tier3');
+      updateStats(iterCount,toolCallCount,'Guard','Running');
+    }
+  }else if(s.phase==='system'){
+    activateStep('ls-system');
+    setCode('lc-system',s.detail,'#58a6ff');
+    addLog('thought','SystemMessage',s.detail);
+    updateStats(iterCount,toolCallCount,'Prompt','Running');
+  }else if(s.phase==='llm'){
+    iterCount++;activateStep('ls-llm');
+    setCode('lc-llm','Forward pass #'+iterCount,'#58a6ff');
+    renderLLM(s.raw||'');
+    addLog('thought','LLM Output',s.raw||'');
+    updateStats(iterCount,toolCallCount,'LLM','Running');
+    hlTier('tier3');
+  }else if(s.phase==='parse'){
+    activateStep('ls-parse');showParser(s.result,s.tool,s.inp,s.answer);
+    if(s.result==='action'){
+      setCode('lc-parse','\u2192 ACTION: '+s.tool,'#3fb950');
+      addLog('action','Parser','\u2192 action: '+s.tool+' | input: '+(s.inp||'').slice(0,50));
+    }else{
+      setCode('lc-parse','\u2192 FINAL ANSWER','#bc8cff');
+      addLog('final','Parser','\u2192 Final Answer extracted');
+    }
+    updateStats(iterCount,toolCallCount,'Parse','Running');
+  }else if(s.phase==='tool'){
+    toolCallCount++;activateStep('ls-tool');
+    setCode('lc-tool',s.tool+' called','#e3b341');
+    markChip(s.tool);
+    addLog('action','Tool: '+s.tool,s.obs||'');
+    updateStats(iterCount,toolCallCount,'Tool','Running');hlTier('tier3');
+  }else if(s.phase==='obs'){
+    activateStep('ls-obs');
+    setCode('lc-obs','Observation: '+(s.obs||''),'#e3b341');
+    addLog('obs','Observation',s.obs||'');
+    updateStats(iterCount,toolCallCount,'Observe','Running');
+  }else if(s.phase==='final'){
+    activateStep('ls-final');
+    setCode('lc-final',(s.answer||'').slice(0,140),'#bc8cff');
+    addLog('final','Final Answer',s.answer||'');
+    updateStats(iterCount,toolCallCount,'Done','\u2713 Complete');
+    running=false;
+    document.getElementById('btnRun').disabled=false;
+    document.getElementById('btnPause').disabled=true;
+  }
+}
+
+function finishRun(){
+  running=false;
+  document.getElementById('btnRun').disabled=false;
+  document.getElementById('btnPause').disabled=true;
+  updateStats(iterCount,toolCallCount,'Done','\u2713 Complete');
+}
+
+function clearAllActive(){
+  document.querySelectorAll('.loop-step').forEach(function(el){el.classList.remove('active');});
+}
+
+function activateStep(id){
+  var el=document.getElementById(id);
+  if(el){el.classList.add('active');el.scrollIntoView({block:'nearest',behavior:'smooth'});}
+}
+
+function setCode(id,text,color){
+  var el=document.getElementById(id);if(el){el.textContent=text;el.style.color=color||'';}
+}
+
+function markChip(tool){
+  var c=document.getElementById('chip-'+tool);if(c)c.className='tool-chip called';
+}
+
+function hlTier(tid){
+  ['tier1','tier2','tier3'].forEach(function(id){document.getElementById(id).classList.remove('active');});
+  if(tid)document.getElementById(tid).classList.add('active');
+}
+
+function updateStats(iter,tools,phase,status){
+  document.getElementById('statIter').textContent=iter;
+  document.getElementById('statTools').textContent=tools;
+  document.getElementById('statStep').textContent=phase;
+  document.getElementById('statStatus').textContent=status;
+}
+
+function renderLLM(raw){
+  if(!raw){document.getElementById('llmOutput').innerHTML='';return;}
+  var h=raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  h=h.replace(/(Thought:)([^<]*)/g,'<span class="hl-thought">$1$2</span>');
+  h=h.replace(/(Action:)([^<]*)/g,'<span class="hl-action-kw">$1$2</span>');
+  h=h.replace(/(Action Input:)([\s\S]*?)(?=Thought:|Final Answer:|$)/g,'<span class="hl-input-kw">$1$2</span>');
+  h=h.replace(/(Final Answer:)([\s\S]*)/g,'<span class="hl-final-kw">$1</span><span class="hl-answer">$2</span>');
+  document.getElementById('llmOutput').innerHTML=h+'<span class="cursor"></span>';
+}
+
+function clearParser(){
+  ['branchFinal','branchAction','branchFallback'].forEach(function(id){document.getElementById(id).classList.remove('matched');});
+  document.getElementById('brFinalResult').textContent='\u2014';document.getElementById('brFinalResult').style.color='#8b949e';
+  document.getElementById('brActionResult').textContent='\u2014';document.getElementById('brActionResult').style.color='#8b949e';
+  document.getElementById('brFallbackResult').textContent='\u2014';document.getElementById('brFallbackResult').style.color='#8b949e';
+}
+
+function showParser(result,tool){
+  clearParser();
+  if(result==='final'){
+    document.getElementById('branchFinal').classList.add('matched');
+    document.getElementById('brFinalResult').textContent='\u2713 MATCH';document.getElementById('brFinalResult').style.color='#bc8cff';
+    document.getElementById('brActionResult').textContent='skip';
+    document.getElementById('brFallbackResult').textContent='skip';
+  }else if(result==='action'){
+    document.getElementById('branchAction').classList.add('matched');
+    document.getElementById('brActionResult').textContent='\u2713 tool='+tool;document.getElementById('brActionResult').style.color='#3fb950';
+    document.getElementById('brFinalResult').textContent='no match';
+    document.getElementById('brFallbackResult').textContent='skip';
+  }else{
+    document.getElementById('branchFallback').classList.add('matched');
+    document.getElementById('brFallbackResult').textContent='\u2713 plain text';document.getElementById('brFallbackResult').style.color='#e3b341';
+    document.getElementById('brFinalResult').textContent='no match';
+    document.getElementById('brActionResult').textContent='no match';
+  }
+}
+
+var LOG_CLASSES={thought:'trace-thought',action:'trace-action',obs:'trace-obs',final:'trace-final',blocked:'trace-blocked',live:'trace-input'};
+function addLog(type,label,text){
+  var log=document.getElementById('traceLog');
+  var d=document.createElement('div');
+  d.className='trace-entry '+(LOG_CLASSES[type]||'trace-thought');
+  d.innerHTML='<div class="trace-label">'+esc(label)+'</div><div class="trace-text">'+esc(String(text).slice(0,220))+'</div>';
+  log.appendChild(d);log.scrollTop=log.scrollHeight;
+}
+function clearLog(){document.getElementById('traceLog').innerHTML='<h3>Execution Log</h3>';}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+init();
+</script>
+</body>
+</html>
