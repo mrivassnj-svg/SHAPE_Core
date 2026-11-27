@@ -135,8 +135,8 @@ def slide_what_is_shape() -> Image.Image:
         ("Offline AI coding agent",           "No internet. No API key. No cost.", TEAL),
         ("Runs on Raspberry Pi 5",            "80 USD device — fits in your pocket.", GRN),
         ("LLM: CodeLlama 7B via Ollama",      "Open-source, fully local.",           YEL),
-        ("LangGraph ReAct reasoning",         "Thought → Action → Observation loop.", PINK),
-        ("RL feedback loop",                  "1–5 star ratings improve responses.",  ORG),
+        ("LangChain ReAct reasoning",         "Thought → Action → Observation loop.", PINK),
+        ("RL feedback loop",                  "1–5 star ratings adjust prompt strategy.", ORG),
     ]
     for i, (title, desc, col) in enumerate(rows):
         y = 150 + i * 108
@@ -180,15 +180,15 @@ def slide_arch_diagram() -> Image.Image:
     img, d = new_slide()
     header_bar(d, "Three-Tier Offline Architecture", YEL)
     nodes = [
-        (W//6,     360, "Pico 2\nSensor I/O",  ORG,  YEL),
-        (W//2,     360, "Zero 2 W\nRelay",      TEAL, BLUE),
-        (5*W//6,   360, "Pi 5\nSHAPE+LLM",     BLUE, PINK),
+        (W//6,     360, "Pico 2\nStatus Display", ORG,  YEL),
+        (W//2,     360, "Zero 2 W\nTerminal",      TEAL, BLUE),
+        (5*W//6,   360, "Pi 5\nSHAPE+LLM",        BLUE, PINK),
     ]
     for nx, ny, lbl, fill, bord in nodes:
         pill(d, nx, ny, 220, 140, fill, bord, lbl, INK, 24)
     # Arrows
     for x1, x2, lbl, col in [
-        (W//6+110, W//2-110, "UART",  YEL),
+        (W//6+110, W//2-110, "USB",   YEL),
         (W//2+110, 5*W//6-110, "Wi-Fi", TEAL),
     ]:
         d.line([(x1, 360), (x2, 360)], fill=col, width=5)
@@ -196,9 +196,9 @@ def slide_arch_diagram() -> Image.Image:
         text(d, lbl, (x1+x2)//2, 335, col, size=20, anchor="mm")
     # Descriptions
     descs = [
-        (W//6,   460, "MicroPython\nSensor readings\nGPIO alerts"),
-        (W//2,   460, "Flask relay\nSerial bridge\nResponse cache"),
-        (5*W//6, 460, "LangGraph ReAct\nCodeLlama 7B\nAll SHAPE tools"),
+        (W//6,   460, "MicroPython\nUSB CDC\nStatus beacon"),
+        (W//2,   460, "HAT display\nQuery terminal\nResponse cache"),
+        (5*W//6, 460, "LangChain ReAct\nCodeLlama 7B\nAll SHAPE tools"),
     ]
     for dx, dy, desc in descs:
         for j, line in enumerate(desc.split("\n")):
@@ -263,13 +263,13 @@ def slide_sensor_stream() -> Image.Image:
         ("CO2:     431 ppm",             GRN),
         ("CO2:     438 ppm  ⚠  ALERT!", RED),
         ("humid:   58.9 %",              ORG),
-        ("→ SHAPE triggered automatically", YEL),
+        ("→ User asks SHAPE to analyze", YEL),
     ]
     rect(d, 60, 90, W-60, 630, (5, 20, 5), GRN, 3)
     for i, (line, col) in enumerate(readings):
         y = 128 + i * 56
         text(d, line, 100, y, col, size=22, bold=(col==RED or col==YEL), anchor="lm")
-    subtitle_bar(d, "Real sensor data feeds directly into SHAPE's reasoning")
+    subtitle_bar(d, "Simulated sensor CSV — the kind of data SHAPE processes in the field")
     return img
 
 
@@ -319,7 +319,7 @@ def slide_code_overview() -> Image.Image:
     img, d = new_slide()
     header_bar(d, "SHAPE Codebase — 5 Core Modules", BLUE)
     modules = [
-        ("agent.py",    "LangGraph ReAct executor over Ollama",     BLUE,  PINK),
+        ("agent.py",    "LangChain ReAct executor over Ollama",     BLUE,  PINK),
         ("feedback.py", "RL reward loop — 1–5 star ratings",        GRN,   TEAL),
         ("safety.py",   "InputGuard — blocks harmful requests",     ORG,   YEL),
         ("tools/ ×4",   "executor · linter · file manager · docs",  TEAL,  BLUE),
@@ -344,9 +344,9 @@ def slide_pitch() -> Image.Image:
     text(d, "Offline.  Intelligent.  Yours.",   W//2, 255, WHT,  size=36,  bold=True, anchor="mm")
     d.line([(120, 285), (W-120, 285)], fill=BLUE, width=3)
     bullets = [
-        ("$80 hardware  ·  $0 / month",        GRN),
-        ("Works anywhere on Earth — or off it", TEAL),
-        ("Gets smarter with every session",     TEAL),
+        ("$80 hardware  ·  $0 / month",              GRN),
+        ("Works anywhere on Earth — or off it",       TEAL),
+        ("Adapts prompt strategy from your ratings",  TEAL),
         ("100% offline  ·  no data leaves the device", GRY),
     ]
     for i, (line, col) in enumerate(bullets):

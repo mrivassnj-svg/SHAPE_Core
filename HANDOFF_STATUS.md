@@ -20,9 +20,9 @@
 
 ## Voice Showcase Rig (hardware upgrade)
 
-The original three-tier sensor architecture (Pico 2 → Zero 2 W → Pi 5) has
-been extended with a voice interaction pipeline. Physical DHT22/MQ-135 sensors
-are **not required** — the Pico 2 now acts as the visual confirmation panel.
+The hardware rig uses three physical devices: Pico 2 (USB status beacon),
+Zero 2 W (HAT query terminal), and Pi 5 (SHAPE brain). Physical DHT22/MQ-135
+sensors are **not used** — the Pico 2 is a display-only status panel.
 
 ---
 
@@ -42,9 +42,9 @@ are **not required** — the Pico 2 now acts as the visual confirmation panel.
 ║  │  ABXY keys          │         │                         │   ║
 ║  │  Joystick           │         │  UART TX  GPIO 14 ──────┼──┐║
 ║  │                     │         │  UART RX  GPIO 15 ──────┼─┐│║
-║  │  GP0 (TX) ──────────┼─────────┼── GPIO 15 (RX)          │ ││║
-║  │  GP1 (RX) ──────────┼─────────┼── GPIO 14 (TX)          │ ││║
-║  │  GND ───────────────┼─────────┼── GND                   │ ││║
+║  │  USB cable ─────────┼─────────┼── (not connected)       │ ││║
+║  │  (USB→Pi 5 only)    │         │                         │ ││║
+║  │                     │         │                         │ ││║
 ║  └─────────────────────┘         └─────────────────────────┘ ││║
 ║                                              Wi-Fi Direct  ↕  ││║
 ║                                         (Pi 5 is hotspot)  ↕  ││║
@@ -70,12 +70,11 @@ are **not required** — the Pico 2 now acts as the visual confirmation panel.
 
 **Why Wi-Fi Direct and not a cable for Zero 2 W ↔ Pi 5?**
 
-The Zero 2 W HAT uses:
-- GPIO 14/15 → already wired to Pico 2 UART
-- GPIO 8/10/11/24/25/27 → SPI LCD
-- GPIO 5/6/13/16/19/20/21/26 → buttons and joystick
+The Zero 2 W has only one micro-USB port (used for power). The Waveshare
+1.3" HAT occupies all 40 GPIO pins — SPI LCD on GPIO 8/10/11/24/25/27,
+buttons and joystick on GPIO 5/6/13/16/19/20/21/26. No free data port
+exists for a wired link to the Pi 5.
 
-There are no free UART pins left for a second hardware serial link.
 Wi-Fi Direct keeps every existing HTTP call working unchanged — it is
 just a private `10.42.0.0/24` network between the two devices with
 the Pi 5 acting as the access point.
@@ -86,11 +85,11 @@ the Pi 5 acting as the access point.
 
 | Link | Type | Wires / medium |
 |---|---|---|
-| Pico 2 → Zero 2 W | **UART (hardware)** | GP0(TX)→GPIO15, GP1(RX)→GPIO14, GND→GND |
+| Pico 2 → Pi 5 | **USB CDC serial** | USB-A cable: Pi 5 `/dev/ttyACM0`; powers Pico 2 too |
 | Zero 2 W → Pi 5 | **Wi-Fi Direct** | No physical wire — Pi 5 hotspot `SHAPE` |
-| Mic → Pi 5 | USB | USB-A mic into Pi 5 USB port |
+| Mic → Pi 5 | USB | USB-A mic into second Pi 5 USB port |
 | Speaker → Pi 5 | 3.5 mm audio | Pi 5 headphone jack or USB DAC |
-| Power | USB-C | Battery bank into Pi 5 USB-C; Pi 5 powers itself |
+| Power | USB-C / battery | Separate battery banks for Pi 5 and Zero 2 W |
 
 ---
 
@@ -154,7 +153,7 @@ Pi 5 mic records 5 s audio
 | `hardware/pi5/voice_loop.py` | **New** — record → transcribe → query → push → speak |
 | `hardware/pi5/api_server.py` | Added `/voice_query`, `/confirm`, `/pending_voice` |
 | `hardware/zero2w/hat_driver.py` | Added `screen_push_query()` |
-| `hardware/zero2w/main_zero2w.py` | Added `PUSH_QUERY` state, voice poll thread, `_push_pico_cmd()` |
+| `hardware/zero2w/main_zero2w.py` | Added `PUSH_QUERY` state, voice poll thread, confirm/reject via HTTP |
 | `hardware/pico2/main.py` | Added `LISTENING / THINKING / CONFIRMED / REJECTED` display modes |
 
 ---
