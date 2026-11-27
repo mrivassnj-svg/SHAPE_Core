@@ -129,13 +129,13 @@ footer{text-align:center;padding:8px;font-size:11px;color:#484f58;border-top:1px
     </div>
 
     <div class="arch">
-      <h2>Three-Tier Hardware Architecture</h2>
+      <h2>Software Architecture</h2>
       <div class="tier-row">
-        <div class="tier" id="tier1"><div class="tier-label">Tier 1 &middot; Pico 2</div><div class="tier-name">Sensor Node</div><div class="tier-sub">DHT22 &middot; MQ-135 &middot; ST7789</div></div>
-        <div class="tier" id="tier2"><div class="tier-label">Tier 2 &middot; Zero 2 W</div><div class="tier-name">Field Terminal</div><div class="tier-sub">HAT display &middot; keys &middot; voice</div></div>
-        <div class="tier tier3" id="tier3"><div class="tier-label">Tier 3 &middot; Pi 5</div><div class="tier-name">SHAPE Agent</div><div class="tier-sub">Ollama &middot; CodeLlama 7B</div></div>
+        <div class="tier" id="tier1"><div class="tier-label">Step 1 &middot; Input</div><div class="tier-name">InputGuard</div><div class="tier-sub">regex screen &middot; &lt;1 ms &middot; pre-LLM</div></div>
+        <div class="tier" id="tier2"><div class="tier-label">Step 2 &middot; Reason</div><div class="tier-name">ReAct Agent</div><div class="tier-sub">Thought &rarr; Action &rarr; Observation</div></div>
+        <div class="tier tier3" id="tier3"><div class="tier-label">Step 3 &middot; Learn</div><div class="tier-name">FeedbackMemory</div><div class="tier-sub">1&ndash;5 stars &middot; RL policy hint</div></div>
       </div>
-      <div class="arrow-row"><span>UART 115200 &rarr;</span><span style="margin:0 24px">HTTP Wi-Fi &rarr;</span><span>&larr; JSON reward</span></div>
+      <div class="arrow-row"><span>blocked &rarr; reject</span><span style="margin:0 24px">&rarr; 4 tools &rarr;</span><span>rating &rarr; hint</span></div>
     </div>
 
     <div class="llm-box">
@@ -286,12 +286,20 @@ var SCENARIOS={
     {phase:"parse",result:"final",answer:"Use csv.DictReader(f) to read CSV rows as dicts."},
     {phase:"final",answer:"Use csv.DictReader(f) to read CSV rows as dicts:\n\nwith open('file.csv') as f:\n    for row in csv.DictReader(f):\n        print(row['column'])"}
   ]},
-  teach5:{label:"AQI Alert",mode:"teach",steps:[
-    {phase:"guard",result:"ALLOWED",detail:"Sensor alert query passed safety check."},
-    {phase:"system",result:"ok",detail:"Auto-query from /sensor endpoint: AQI=648 triggered."},
-    {phase:"llm",raw:"Thought: AQI is 648 which is dangerous. I should provide immediate action advice.\nFinal Answer: AQI=648 is HAZARDOUS (>600 threshold). Immediate actions:\n1. Evacuate or ventilate the area\n2. Silence any open combustion sources\n3. Run alert script to log the event"},
-    {phase:"parse",result:"final",answer:"AQI=648 HAZARDOUS. Evacuate/ventilate. Log event."},
-    {phase:"final",answer:"AQI=648 is HAZARDOUS (>600 threshold).\n1. Evacuate or ventilate the area\n2. Silence combustion sources\n3. Log the event\n\nNote: alert was triggered by deterministic threshold, not LLM."}
+  teach5:{label:"File I/O",mode:"teach",steps:[
+    {phase:"guard",result:"ALLOWED",detail:"No blocked patterns matched."},
+    {phase:"system",result:"ok",detail:"4 tools described. No RL hint (< 5 records)."},
+    {phase:"llm",raw:"Thought: I should write the data to a file first, then read it back to verify.\nAction: file_manager\nAction Input: {\"action\": \"write\", \"path\": \"output.txt\", \"content\": \"hello from SHAPE\"}"},
+    {phase:"parse",result:"action",tool:"file_manager",inp:"{\"action\": \"write\", \"path\": \"output.txt\", …}"},
+    {phase:"tool",tool:"file_manager",obs:"[FileManager] Written: output.txt"},
+    {phase:"obs",obs:"[FileManager] Written: output.txt"},
+    {phase:"llm",raw:"Thought: File written. Now read it back to confirm.\nAction: file_manager\nAction Input: {\"action\": \"read\", \"path\": \"output.txt\"}"},
+    {phase:"parse",result:"action",tool:"file_manager",inp:"{\"action\": \"read\", \"path\": \"output.txt\"}"},
+    {phase:"tool",tool:"file_manager",obs:"hello from SHAPE"},
+    {phase:"obs",obs:"hello from SHAPE"},
+    {phase:"llm",raw:"Thought: File round-trip confirmed.\nFinal Answer: Wrote and verified output.txt successfully. Contents: 'hello from SHAPE'."},
+    {phase:"parse",result:"final",answer:"Wrote and verified output.txt. Contents: 'hello from SHAPE'."},
+    {phase:"final",answer:"Wrote and verified output.txt successfully.\nContents: 'hello from SHAPE'."}
   ]},
   live:{label:"Live Trace",mode:"live",steps:[]}
 };
@@ -348,7 +356,7 @@ function resetDemo(){
     var el=document.getElementById(id);if(el)el.textContent='';
   });
   if(currentMode==='live'){
-    addLog('live','Live Mode','Connect your notebook kernel and run the agent. Verbose output from shape/agent.py will populate this log in real time.');
+    addLog('live','Live Trace','Run the cell below in your notebook to stream agent steps here:\n\nfrom shape_viz_bridge import stream_to_viz\nstream_to_viz(agent, "Write a bubble sort and test it.")\n\nEach Thought/Action/Observation step will appear in this log.');
   }
 }
 
