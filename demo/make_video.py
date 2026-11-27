@@ -178,32 +178,35 @@ def slide_pi_board() -> Image.Image:
 
 def slide_arch_diagram() -> Image.Image:
     img, d = new_slide()
-    header_bar(d, "Three-Tier Offline Architecture", YEL)
-    nodes = [
-        (W//6,     360, "Pico 2\nStatus Display", ORG,  YEL),
-        (W//2,     360, "Zero 2 W\nTerminal",      TEAL, BLUE),
-        (5*W//6,   360, "Pi 5\nSHAPE+LLM",        BLUE, PINK),
+    header_bar(d, "SHAPE — Software Architecture", YEL)
+    # Vertical flow: InputGuard → ReAct Agent → RL Feedback
+    boxes = [
+        (W//2, 165, "InputGuard",          "Pre-LLM safety screen\nregex, < 1 ms",          PINK,  PINK),
+        (W//2, 320, "ReAct Agent",         "Thought → Action → Observation\nmax 8 iterations", BLUE,  TEAL),
+        (W//2, 475, "FeedbackMemory",      "1–5 star ratings\nadjust system prompt",           GRN,   GRN),
     ]
-    for nx, ny, lbl, fill, bord in nodes:
-        pill(d, nx, ny, 220, 140, fill, bord, lbl, INK, 24)
-    # Arrows
-    for x1, x2, lbl, col in [
-        (W//6+110, W//2-110, "USB",   YEL),
-        (W//2+110, 5*W//6-110, "Wi-Fi", TEAL),
-    ]:
-        d.line([(x1, 360), (x2, 360)], fill=col, width=5)
-        d.polygon([(x2-2,350),(x2+16,360),(x2-2,370)], fill=col)
-        text(d, lbl, (x1+x2)//2, 335, col, size=20, anchor="mm")
-    # Descriptions
-    descs = [
-        (W//6,   460, "MicroPython\nUSB CDC\nStatus beacon"),
-        (W//2,   460, "HAT display\nQuery terminal\nResponse cache"),
-        (5*W//6, 460, "LangChain ReAct\nCodeLlama 7B\nAll SHAPE tools"),
-    ]
-    for dx, dy, desc in descs:
-        for j, line in enumerate(desc.split("\n")):
-            text(d, line, dx, dy+j*28, GRY, size=19, anchor="mm")
-    subtitle_bar(d, "Three-tier: Pico 2 → Zero 2 W → Pi 5 + SHAPE")
+    for bx, by, title, desc, fill, bord in boxes:
+        pill(d, bx, by, 340, 100, (20, 15, 50), bord, "", WHT, 20)
+        text(d, title, bx, by - 18, fill,  size=22, bold=True, anchor="mm")
+        for j, ln in enumerate(desc.split("\n")):
+            text(d, ln, bx, by + 10 + j * 22, GRY, size=18, anchor="mm")
+    # Arrows between boxes
+    for y1, y2 in [(215, 270), (370, 425)]:
+        d.line([(W//2, y1), (W//2, y2)], fill=WHT, width=4)
+        d.polygon([(W//2-10, y2-2), (W//2+10, y2-2), (W//2, y2+14)], fill=WHT)
+    # Tools row
+    tools = [("linter", YEL), ("code_executor", ORG), ("file_manager", TEAL), ("doc_search", PINK)]
+    tool_y = 575
+    for i, (name, col) in enumerate(tools):
+        tx = 160 + i * 250
+        pill(d, tx, tool_y, 200, 48, (20, 15, 50), col, name, col, 15)
+    # Arrow from agent to tools
+    d.line([(W//2, 370), (W//2, tool_y - 24)], fill=WHT, width=2)
+    for i, (name, col) in enumerate(tools):
+        tx = 160 + i * 250
+        d.line([(W//2, tool_y - 24), (tx, tool_y - 24)], fill=WHT, width=2)
+        d.line([(tx, tool_y - 24), (tx, tool_y - 24)], fill=WHT, width=2)
+    subtitle_bar(d, "InputGuard → ReAct loop → 4 tools → RL feedback")
     return img
 
 

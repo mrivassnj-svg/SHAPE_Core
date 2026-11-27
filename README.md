@@ -13,14 +13,12 @@
 
 ## What is SHAPE?
 
-SHAPE is an **offline AI coding agent** that runs entirely on a **Raspberry Pi 5 (8 GB)**
-(or any Linux machine). It uses:
+SHAPE is an **offline AI coding agent** that runs on any Linux machine (laptop, desktop, or Raspberry Pi). It uses:
 
 - **LangChain** (ReAct agent pattern) for reasoning and tool orchestration
 - **Ollama** running **CodeLlama 7B** locally — no internet, no API keys required
 - **Four integrated tools**: code executor, linter, file manager, and doc search
-- A **reinforcement learning feedback loop** that improves responses over time
-  based on user ratings (1–5 stars)
+- A **reinforcement learning feedback loop** that adjusts prompt strategy from user ratings (1–5 stars)
 
 ---
 
@@ -61,40 +59,33 @@ User Input
 
 ---
 
-## Raspberry Pi Setup
+## Setup
 
-### 1. Install Ollama
+### Option A — Google Colab (no install)
 
+Open any notebook in `notebooks/` directly in Colab. The first cell clones the repo and installs dependencies automatically.
+
+### Option B — Local / Raspberry Pi
+
+**1. Install Ollama**
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
 ollama pull codellama   # ~3.8 GB — downloads once
 ollama serve            # starts on port 11434
 ```
 
-### 2. Clone & install SHAPE
-
+**2. Clone & install SHAPE**
 ```bash
 git clone https://github.com/mrivassnj-svg/SHAPE_Core.git
 cd SHAPE_Core
 pip install -r requirements.txt
 ```
 
-### 3. (Optional) Build offline doc index
-
-Place `.md` documentation files in `data/docs/`, then:
-
-```bash
-python -m shape.tools.doc_search --build
-```
-
-### 4. Run SHAPE
-
+**3. Run SHAPE**
 ```bash
 python main.py
 # or with verbose reasoning:
 python main.py --verbose
-# or with custom config:
-python main.py --config config.yaml
 ```
 
 ---
@@ -124,11 +115,11 @@ SHAPE_Core/
 ├── main.py                  # CLI entry point
 ├── config.yaml              # Runtime configuration
 ├── requirements.txt
-├── setup.sh                 # Raspberry Pi one-shot setup script
 ├── shape/
 │   ├── __init__.py
 │   ├── agent.py             # Core ReAct agent
-│   ├── feedback.py          # RL feedback loop
+│   ├── feedback.py          # RL feedback loop (shim → rewards.py)
+│   ├── rewards.py           # FeedbackMemory — RL policy hints
 │   ├── safety.py            # Input guard / safety screening
 │   └── tools/
 │       ├── __init__.py
@@ -136,6 +127,8 @@ SHAPE_Core/
 │       ├── linter.py        # pyflakes static analysis
 │       ├── file_manager.py  # Workspace file I/O
 │       └── doc_search.py    # Offline FAISS doc search
+├── notebooks/               # Four Jupyter notebooks (run in Colab or locally)
+├── tests/                   # 32 unit tests (pytest)
 ├── data/
 │   ├── docs/                # Place .md doc files here
 │   ├── doc_index/           # Auto-generated FAISS index
@@ -180,4 +173,4 @@ Here is the function:
 
 ---
 
-*SHAPE — built for ITAI2376, Group 3. Runs entirely offline on a Raspberry Pi.*
+*SHAPE — built for ITAI2376, Group 3. Runs entirely offline on any machine.*
