@@ -5,7 +5,7 @@
 # Group 3 — ITAI2376-14562
 
 # --- LLM ---
-model: llama3.1           # Ollama model name. Alternatives: mistral, phi3
+model: codellama          # Ollama model name — matches hardware/pi5/config_pi5.yaml. Alternatives: llama3.1, mistral, phi3
 ollama_url: http://localhost:11434
 temperature: 0.2           # Lower = more deterministic code output
 context_window: 4096       # Tokens. Reduce to 2048 if Pi runs out of RAM.

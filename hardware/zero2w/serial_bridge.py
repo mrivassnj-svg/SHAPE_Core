@@ -47,6 +47,13 @@ log = logging.getLogger("serial_bridge")
 
 # ── data model ────────────────────────────────────────────────────────────────
 
+# NOTE: shape/sensors.py also defines a SensorReading dataclass for the
+# canonical Python-side API.  This local version is intentionally kept
+# separate: serial_bridge.py runs as a standalone daemon on the Zero 2 W
+# (no guarantee shape/ is on sys.path), needs a `raw` field for debug
+# logging, and uses `to_dict()` for the HTTP POST payload.  If you ever
+# install the full shape package on the Zero 2 W you could replace this
+# with an adapter around shape.sensors.parse_csv_line().
 class SensorReading:
     """Parsed telemetry from a Pico 2 CSV line."""
     __slots__ = ("ts_ms", "temperature", "humidity", "aqi", "alert", "raw")

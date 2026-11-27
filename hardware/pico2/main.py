@@ -3,38 +3,34 @@ main.py — Raspberry Pi Pico 2 firmware for SHAPE Tier-1 node
 Waveshare Pico-LCD-1.3 HAT  (240×240 ST7789, ABXY keys + joystick)
 
 Responsibilities:
-  1. Read DHT22 (temp/humidity) and MQ-135 (air quality) every 2 s
-  2. Send CSV telemetry to Zero 2 W over UART (GP0/GP1, 115200 baud)
-  3. Receive JSON commands from Zero 2 W (same UART)
-  4. Display live sensor data + SHAPE status on the LCD
-  5. ABXY navigation:
-       A = toggle display mode (SENSOR ↔ STATUS)
-       B = force immediate sensor read + transmit
+  1. Acts as the visual status beacon for the SHAPE voice showcase rig.
+  2. Receive JSON commands from Pi 5 over USB CDC serial (USB cable, /dev/ttyACM0)
+  3. Display agent status + voice pipeline state on the LCD
+  4. ABXY navigation:
+       A = toggle display mode (STATUS / RESPONSE)
        X = clear alert / acknowledge
        Y = show last SHAPE response (scrollable with UP/DOWN)
 
-UART protocol (Pico → Zero 2 W):
-  CSV line every 2 s:  SHAPE,{ts_ms},{temp},{humidity},{aqi},{alert}
-
-UART protocol (Zero 2 W → Pico):
-  JSON line:  {"cmd": "STATUS", "text": "Agent ready", "reward": 0.9}
-              {"cmd": "ALERT",  "text": "High AQI detected"}
-              {"cmd": "RESET"}
+USB CDC protocol (Pi 5 -> Pico 2, one JSON line per message):
+  {"cmd": "STATUS",    "text": "Agent ready",    "reward": 0.9}
+  {"cmd": "ALERT",     "text": "High AQI ..."}
+  {"cmd": "LISTENING"}                   <- Pi 5 mic is recording
+  {"cmd": "THINKING"}                    <- agent.run() in progress
+  {"cmd": "CONFIRMED", "text": "answer"} <- user confirmed on Zero 2 W
+  {"cmd": "REJECTED"}                    <- user rejected on Zero 2 W
+  {"cmd": "RESET"}
 """
 
-import machine
+import sys
 import time
 import json
 
-from st7789  import ST7789, BLACK, WHITE, VIOLET, CYAN, YELLOW, GREEN, RED, ORANGE, color565
-from sensors import SensorHub
-from keys    import KeyHandler
+from st7789 import ST7789, BLACK, WHITE, VIOLET, CYAN, YELLOW, GREEN, RED, ORANGE, color565
+from keys   import KeyHandler
 
 
 # ── constants ─────────────────────────────────────────────────────────────────
 
-SAMPLE_INTERVAL_MS = 2_000    # sensor sample period
-UART_BAUD          = 115_200  # must match serial_bridge.py on Zero 2 W
 MAX_RESPONSE_LINES = 20       # ring buffer for SHAPE responses
 
 # Display colour palette (matches SHAPE anime palette)
@@ -48,38 +44,38 @@ WARN_COL  = YELLOW
 ERR_COL   = RED
 
 
-# ── UART setup ────────────────────────────────────────────────────────────────
+# ── USB CDC input buffer ───────────────────────────────────────────────────────
 
-_uart = machine.UART(0, baudrate=UART_BAUD,
-                     tx=machine.Pin(0), rx=machine.Pin(1))
+_usb_buf = b""   # accumulate bytes until a newline arrives
 
 
 # ── display modes ─────────────────────────────────────────────────────────────
 
-MODE_SENSOR  = 0
-MODE_STATUS  = 1
-MODE_RESPONSE = 2
+MODE_STATUS    = 0   # agent status + reward bar  (default)
+MODE_RESPONSE  = 1   # scrollable last answer
+MODE_LISTENING = 2   # Pi 5 mic is recording
+MODE_THINKING  = 3   # agent.run() in progress
+MODE_CONFIRMED = 4   # answer accepted — flash green
+MODE_REJECTED  = 5   # answer rejected — flash red
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-def _send_csv(ts_ms, hub):
-    """Format and transmit CSV telemetry line to Zero 2 W."""
-    row = hub.csv_row(ts_ms)
-    line = f"SHAPE,{row}\r\n"
-    _uart.write(line.encode())
-
-
 def _recv_json():
     """
-    Non-blocking check for a complete JSON line from Zero 2 W.
+    Non-blocking check for a complete JSON line from Pi 5 via USB CDC.
+    Accumulates bytes in _usb_buf until a newline is found.
     Returns parsed dict or None.
     """
-    if _uart.any():
+    global _usb_buf
+    # sys.stdin.buffer is the raw USB CDC byte stream in MicroPython
+    chunk = sys.stdin.buffer.read(64) if hasattr(sys.stdin, 'buffer') else b""
+    if chunk:
+        _usb_buf += chunk
+    if b"\n" in _usb_buf:
+        line, _usb_buf = _usb_buf.split(b"\n", 1)
         try:
-            raw = _uart.readline()
-            if raw:
-                return json.loads(raw.decode().strip())
+            return json.loads(line.decode().strip())
         except (ValueError, UnicodeError):
             pass
     return None
@@ -219,24 +215,74 @@ def draw_response_screen(lcd, lines, scroll, ts_ms):
     lcd.text(165, 231, "Y:BACK",  DIM_COL, BG)
 
 
+def draw_listening_screen(lcd, ts_ms):
+    """Pulsing 'LISTENING' screen — shown while Pi 5 mic is recording."""
+    lcd.fill(BG)
+    draw_header(lcd, "SHAPE VOICE", ts_ms)
+    # Animated dot: 3 dots cycling with ts_ms
+    dots = "." * ((ts_ms // 500) % 4)
+    lcd.text_center(80,  "LISTENING",  CYAN, BG, scale=2)
+    lcd.text_center(118, dots,         CYAN, BG, scale=2)
+    lcd.text_center(145, "Speak now", DIM_COL, BG, scale=1)
+    lcd.hline(0, 228, 240, BORDER)
+    lcd.text(4, 231, "X:Cancel", DIM_COL, BG)
+
+
+def draw_thinking_screen(lcd, ts_ms):
+    """Shown while Pi 5 agent.run() is in progress."""
+    lcd.fill(BG)
+    draw_header(lcd, "SHAPE THINKING", ts_ms)
+    spin = ["|", "/", "-", "\\"][(ts_ms // 300) % 4]
+    lcd.text_center(80,  "THINKING",   YELLOW, BG, scale=2)
+    lcd.text_center(118, spin,         YELLOW, BG, scale=2)
+    lcd.text_center(145, "CodeLlama", DIM_COL, BG, scale=1)
+    lcd.hline(0, 228, 240, BORDER)
+
+
+def draw_confirmed_screen(lcd, text, ts_ms):
+    """Flash green — answer confirmed by user on Zero 2 W."""
+    lcd.fill(color565(0, 40, 10))
+    draw_header(lcd, "CONFIRMED", ts_ms)
+    lcd.text_center(70,  "OK",        GREEN, color565(0, 40, 10), scale=3)
+    lcd.text_center(118, "Speaking!", GREEN, color565(0, 40, 10), scale=1)
+    # Show first 26 chars of answer
+    if text:
+        lcd.text(4, 148, text[:26],  WHITE, color565(0, 40, 10))
+        if len(text) > 26:
+            lcd.text(4, 162, text[26:52], WHITE, color565(0, 40, 10))
+    lcd.hline(0, 228, 240, BORDER)
+
+
+def draw_rejected_screen(lcd, ts_ms):
+    """Flash red — answer rejected by user on Zero 2 W."""
+    lcd.fill(color565(40, 0, 0))
+    draw_header(lcd, "REJECTED", ts_ms)
+    lcd.text_center(80,  "RETRY",    RED, color565(40, 0, 0), scale=2)
+    lcd.text_center(115, "Listening again...", DIM_COL, color565(40, 0, 0), scale=1)
+    lcd.hline(0, 228, 240, BORDER)
+
+
 # ── main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    lcd     = ST7789()
-    hub     = SensorHub()
-    keys    = KeyHandler()
+    lcd  = ST7789()
+    keys = KeyHandler()
 
-    mode           = MODE_SENSOR
+    mode           = MODE_STATUS
     scroll         = 0
     response_lines = []          # ring buffer of received response text
     status_text    = "Agent ready"
     reward         = None
     alert_text     = ""
-    force_send     = False
+    confirmed_text = ""
 
-    last_sample_ms  = -SAMPLE_INTERVAL_MS   # trigger immediately
-    last_draw_ms    = 0
-    DRAW_INTERVAL   = 250                   # redraw every 250 ms
+    # Transient mode timeout: LISTENING/THINKING/CONFIRMED/REJECTED auto-revert
+    # to STATUS after this many ms if no further command arrives.
+    TRANSIENT_MS  = 4000
+    transient_at  = 0            # ticks_ms when transient mode was entered
+
+    last_draw_ms  = 0
+    DRAW_INTERVAL = 250          # redraw every 250 ms
 
     while True:
         now = time.ticks_ms()
@@ -244,60 +290,97 @@ def main():
         # ── key events ────────────────────────────────────────────────────
         evt = keys.poll()
         if evt == "A":
-            mode = (mode + 1) % 3
-            scroll = 0
-        elif evt == "B":
-            force_send = True
+            # Cycle between STATUS and RESPONSE only
+            if mode in (MODE_STATUS, MODE_RESPONSE):
+                mode = MODE_RESPONSE if mode == MODE_STATUS else MODE_STATUS
+                scroll = 0
         elif evt == "X":
             alert_text = ""
+            if mode not in (MODE_STATUS, MODE_RESPONSE):
+                mode = MODE_STATUS  # cancel any transient state
         elif evt == "Y":
-            mode = MODE_RESPONSE
+            mode   = MODE_RESPONSE
+            scroll = 0
         elif evt == "UP" and mode == MODE_RESPONSE:
             scroll = max(0, scroll - 1)
         elif evt == "DOWN" and mode == MODE_RESPONSE:
             scroll = min(max(0, len(response_lines) - 1), scroll + 1)
 
-        # ── sensor sample ─────────────────────────────────────────────────
-        if (time.ticks_diff(now, last_sample_ms) >= SAMPLE_INTERVAL_MS
-                or force_send):
-            hub.measure()
-            _send_csv(now, hub)
-            last_sample_ms = now
-            force_send = False
-
-        # ── receive from Zero 2 W ─────────────────────────────────────────
+        # ── receive from Pi 5 via USB CDC ────────────────────────────────
         msg = _recv_json()
         if msg:
             cmd = msg.get("cmd", "")
+
             if cmd == "STATUS":
                 status_text = msg.get("text", "")
                 reward      = msg.get("reward")
-                # Add to response ring
+                # Accumulate answer text in response ring
                 txt = msg.get("text", "")
-                # Chunk into 39-char lines for the response screen
                 while txt:
                     response_lines.append(txt[:39])
                     txt = txt[39:]
                 if len(response_lines) > MAX_RESPONSE_LINES:
                     response_lines = response_lines[-MAX_RESPONSE_LINES:]
                 scroll = max(0, len(response_lines) - 19)
+                if mode not in (MODE_STATUS, MODE_RESPONSE):
+                    mode = MODE_STATUS
+
             elif cmd == "ALERT":
                 alert_text = msg.get("text", "ALERT")[:26]
+
+            elif cmd == "LISTENING":
+                mode        = MODE_LISTENING
+                transient_at = now
+
+            elif cmd == "THINKING":
+                mode        = MODE_THINKING
+                transient_at = now
+
+            elif cmd == "CONFIRMED":
+                confirmed_text = msg.get("text", "")
+                # Chunk confirmed answer into response ring
+                txt = confirmed_text
+                while txt:
+                    response_lines.append(txt[:39])
+                    txt = txt[39:]
+                if len(response_lines) > MAX_RESPONSE_LINES:
+                    response_lines = response_lines[-MAX_RESPONSE_LINES:]
+                scroll = max(0, len(response_lines) - 19)
+                mode        = MODE_CONFIRMED
+                transient_at = now
+
+            elif cmd == "REJECTED":
+                mode        = MODE_REJECTED
+                transient_at = now
+
             elif cmd == "RESET":
                 status_text    = "Agent reset"
                 reward         = None
                 response_lines = []
                 alert_text     = ""
+                confirmed_text = ""
                 scroll         = 0
+                mode           = MODE_STATUS
+
+        # ── auto-revert transient modes after TRANSIENT_MS ────────────────
+        if mode in (MODE_LISTENING, MODE_THINKING, MODE_CONFIRMED, MODE_REJECTED):
+            if time.ticks_diff(now, transient_at) > TRANSIENT_MS:
+                mode = MODE_STATUS
 
         # ── redraw ────────────────────────────────────────────────────────
         if time.ticks_diff(now, last_draw_ms) >= DRAW_INTERVAL:
-            if mode == MODE_SENSOR:
-                draw_sensor_screen(lcd, hub, now, alert_text)
-            elif mode == MODE_STATUS:
+            if mode == MODE_STATUS:
                 draw_status_screen(lcd, status_text, reward, now)
-            else:
+            elif mode == MODE_RESPONSE:
                 draw_response_screen(lcd, response_lines, scroll, now)
+            elif mode == MODE_LISTENING:
+                draw_listening_screen(lcd, now)
+            elif mode == MODE_THINKING:
+                draw_thinking_screen(lcd, now)
+            elif mode == MODE_CONFIRMED:
+                draw_confirmed_screen(lcd, confirmed_text, now)
+            elif mode == MODE_REJECTED:
+                draw_rejected_screen(lcd, now)
             last_draw_ms = now
 
         time.sleep_ms(10)

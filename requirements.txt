@@ -27,8 +27,8 @@ pyflakes>=3.0.0
 # --- Config & utilities ---
 pyyaml>=6.0
 
-# --- Hardware serial bridge (Zero 2 W only) ---
-# pyserial>=3.5
+# --- Hardware serial (Pi 5 → Pico 2 USB CDC via pico_usb.py) ---
+pyserial>=3.5
 
 # --- Testing ---
 pytest>=7.0.0

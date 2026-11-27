@@ -3,14 +3,14 @@ Zero 2 W main application — SHAPE field terminal
 =================================================
 Runs on the Pi Zero 2 W. Handles:
   - Waveshare 1.3" HAT display + joystick + K1/K2/K3 keys
-  - Sends user queries to Pi 5 API over Wi-Fi
-  - Bridges Pico 2 serial sensor data to Pi 5
+  - Sends user queries to Pi 5 API over Wi-Fi Direct (10.42.0.1)
+  - Displays voice queries pushed from Pi 5 for K1/K3 confirm/reject
   - Caches last 10 responses for offline fallback
 
 Controls:
   K1  = Send query / confirm
   K2  = Next page / status
-  K3  = Back / cancel
+  K3  = Back / cancel / reject (long-press unused — mic is on Pi 5)
   Joystick UP/DOWN = scroll menu
   Joystick LEFT/RIGHT = adjust rating
 
@@ -25,7 +25,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import serial
 import threading
 import time
 import urllib.request
@@ -36,10 +35,8 @@ from pathlib import Path
 from hat_driver import (
     ST7789, InputHandler,
     screen_home, screen_query_input, screen_thinking,
-    screen_response, screen_rate, screen_status,
+    screen_push_query, screen_response, screen_rate, screen_status,
 )
-from serial_bridge import SerialBridge
-import mic_recorder
 
 log = logging.getLogger("shape.zero2w")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -47,22 +44,19 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-PI5_URL     = os.getenv("SHAPE_PI5_URL", "http://192.168.4.1:8765")
-API_KEY     = os.getenv("SHAPE_API_KEY", "shape_local_key")
-# UART to Pico 2 (GPIO UART, not USB ACM) — override with PICO_SERIAL env var
-SERIAL_PORT = os.getenv("PICO_SERIAL",   "/dev/ttyAMA1")
-SERIAL_BAUD = 115200
-CACHE_FILE  = Path("/home/pi/.shape_cache.jsonl")
-CACHE_SIZE  = 10
+PI5_URL    = os.getenv("SHAPE_PI5_URL", "http://10.42.0.1:8765")
+API_KEY    = os.getenv("SHAPE_API_KEY", "shape_local_key")
+CACHE_FILE = Path("/home/pi/.shape_cache.jsonl")
+CACHE_SIZE = 10
 
 # Preset query shortcuts — selected by joystick UP/DOWN from home screen
 PRESETS = [
-    "Show me the latest sensor readings",
-    "Is the CO2 level safe?",
-    "Write a function to parse the sensor CSV",
-    "What should I do if CO2 exceeds 450 ppm?",
-    "Explain the last anomaly detected",
-    "Write a Python alert script for the sensor data",
+    "Write a Python function and test it",
+    "Explain the ReAct reasoning loop",
+    "Debug this code: print('hello' + 1)",
+    "What is the SHAPE system?",
+    "Write a CSV parser",
+    "How do I read a file in Python?",
 ]
 
 
@@ -152,50 +146,6 @@ class ResponseCache:
 
 
 # ---------------------------------------------------------------------------
-# Pico 2 serial bridge (background threads via serial_bridge.SerialBridge)
-# ---------------------------------------------------------------------------
-
-class PicoReader:
-    """
-    Thin wrapper around SerialBridge that exposes the same .latest / .alert
-    interface the rest of main_zero2w.py already uses.
-    """
-
-    def __init__(self, port: str, baud: int, pi5_base: str):
-        self._bridge = SerialBridge(uart_port=port, uart_baud=baud,
-                                    pi5_base=pi5_base)
-
-    @property
-    def latest(self) -> dict:
-        r = self._bridge.latest_reading
-        if r is None:
-            return {}
-        return {
-            "timestamp":    r.ts_ms,
-            "temp_c":       r.temperature,
-            "humidity_pct": r.humidity,
-            "aqi":          r.aqi,
-        }
-
-    @property
-    def alert(self) -> bool:
-        r = self._bridge.latest_reading
-        return r.alert if r else False
-
-    def start(self):
-        ok = self._bridge.start()
-        if not ok:
-            log.warning("SerialBridge could not open UART — Pico 2 disconnected?")
-
-    def stop(self):
-        self._bridge.stop()
-
-    def push_status(self, text: str, reward: float = None):
-        """Forward agent status/reward back down to the Pico 2 LCD."""
-        self._bridge.push_to_pico("STATUS", text, reward)
-
-
-# ---------------------------------------------------------------------------
 # Main UI state machine
 # ---------------------------------------------------------------------------
 
@@ -210,6 +160,10 @@ class ShapeTerminal:
       RESPONSE   — displaying paginated response
       RATE       — rating the response (RL feedback)
       STATUS     — system status screen
+      PUSH_QUERY — Pi 5 pushed a voice query for confirmation
+                   K1 = confirm (Pi 5 speaks answer aloud)
+                   K2 = next page of answer
+                   K3 = reject (Pi 5 discards, re-listens)
     """
 
     def __init__(self):
@@ -217,7 +171,6 @@ class ShapeTerminal:
         self.buttons = InputHandler()
         self.client  = Pi5Client(PI5_URL, API_KEY)
         self.cache   = ResponseCache(CACHE_FILE)
-        self.pico    = PicoReader(SERIAL_PORT, SERIAL_BAUD, PI5_URL)
 
         self.state        = "HOME"
         self.preset_idx   = 0
@@ -227,13 +180,65 @@ class ShapeTerminal:
         self.rating       = 3
         self.pi5_online   = False
 
+        # Voice confirmation state
+        self._voice_query_id:  str  = ""
+        self._voice_transcript: str = ""
+        self._voice_answer:     str = ""
+        self._voice_page:       int = 0
+
     def start(self):
-        self.pico.start()
         # Quick Pi 5 connectivity check
         self.pi5_online = self.client.is_online()
         log.info("Pi 5 online: %s", self.pi5_online)
+        self._start_voice_poll()
         self._render()
         self._loop()
+
+    # ── Voice poll thread ─────────────────────────────────────────────────
+
+    def _start_voice_poll(self):
+        """
+        Background thread that polls /pending_voice every 1.5 s.
+        When Pi 5 pushes a voice query, switches state to PUSH_QUERY so
+        the user can confirm or reject it via K1 / K3.
+        """
+        def _poll():
+            last_pending = False
+            while True:
+                try:
+                    result = self.client._get("/pending_voice", timeout=5)
+                    is_pending = result.get("pending", False)
+
+                    if is_pending and self.state not in ("PUSH_QUERY",):
+                        self._voice_query_id   = result["query_id"]
+                        self._voice_transcript = result["transcript"]
+                        self._voice_answer     = result["answer"]
+                        self._voice_page       = 0
+                        self.state = "PUSH_QUERY"
+                        log.info("Voice query pushed from Pi 5: id=%s", self._voice_query_id)
+
+                    elif not is_pending and last_pending:
+                        # Cleared without us confirming — Pi 5 timeout/reset
+                        if self.state == "PUSH_QUERY":
+                            self.state = "HOME"
+
+                    last_pending = is_pending
+                except Exception:
+                    pass
+                time.sleep(1.5)
+
+        t = threading.Thread(target=_poll, daemon=True)
+        t.start()
+
+    def _send_confirm(self, confirmed: bool):
+        """POST /confirm to Pi 5."""
+        try:
+            self.client._post("/confirm", {
+                "query_id": self._voice_query_id,
+                "confirmed": confirmed,
+            }, timeout=10)
+        except Exception as exc:
+            log.warning("Confirm POST failed: %s", exc)
 
     def _render(self):
         """Draw current state to LCD."""
@@ -253,6 +258,12 @@ class ShapeTerminal:
                 st.get("model", "unknown"),
                 st.get("rl", {}).get("avg_score"),
                 st.get("rl", {}).get("records", 0),
+            )
+        elif self.state == "PUSH_QUERY":
+            img = screen_push_query(
+                self._voice_transcript,
+                self._voice_answer,
+                self._voice_page,
             )
         else:
             img = screen_home()
@@ -274,64 +285,10 @@ class ShapeTerminal:
             cached = self.cache.find(query)
             return f"[Fallback] {cached}" if cached else f"[Error] {exc}"
 
-    def _transcribe(self, wav_path) -> str:
-        """
-        POST a WAV file to the Pi 5 /transcribe endpoint.
-        Returns the transcribed text string, or an error message.
-        wav_path: pathlib.Path returned by mic_recorder.record_wav()
-        """
-        url = self.client.base_url + "/transcribe"
-        try:
-            data = wav_path.read_bytes()
-            req  = urllib.request.Request(
-                url, data=data,
-                headers={**self.client._headers(), "Content-Type": "audio/wav"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=35) as resp:
-                return json.loads(resp.read()).get("text", "")
-        except Exception as exc:
-            log.warning("Transcription failed: %s", exc)
-            return ""
-        finally:
-            try:
-                wav_path.unlink()
-            except Exception:
-                pass
-
     def _loop(self):
         """Main event loop — polls buttons and updates state."""
-        # Long-press detection: track when K3 was first pressed
-        _k3_down_at = None
-        LONG_PRESS_S = 1.0   # hold K3 for 1 s to trigger mic recording
-
         while True:
             key = self.buttons.wait_for_press(timeout=0.05)
-
-            # ── K3 long-press = voice input (hold K3 ≥ 1 s from any screen) ──
-            if key == "K3_DOWN":
-                _k3_down_at = time.time()
-            elif key == "K3_UP":
-                if _k3_down_at and (time.time() - _k3_down_at) >= LONG_PRESS_S:
-                    # Long press — record voice
-                    log.info("K3 long-press: starting voice recording")
-                    self.state = "THINKING"
-                    self._render()
-                    try:
-                        wav = mic_recorder.record_wav(5)
-                        text = self._transcribe(wav)
-                    except Exception as exc:
-                        log.warning("Mic record error: %s", exc)
-                        text = ""
-                    if text:
-                        self.current_q = text
-                        self.state = "QUERY"   # show transcription for confirmation
-                    else:
-                        self.state = "HOME"
-                    _k3_down_at = None
-                    self._render()
-                    continue
-                _k3_down_at = None
 
             if self.state == "HOME":
                 if key == "UP":
@@ -387,11 +344,6 @@ class ShapeTerminal:
                         self.client.feedback(
                             self.current_q, self.current_a, self.rating)
                         log.info("Feedback sent: %d", self.rating)
-                        # Mirror the reward back to the Pico 2 LCD
-                        self.pico.push_status(
-                            self.current_a[:40],
-                            round(self.rating / 5.0, 2),
-                        )
                     except Exception as exc:
                         log.warning("Feedback failed: %s", exc)
                     self.state = "HOME"
@@ -401,6 +353,18 @@ class ShapeTerminal:
             elif self.state == "STATUS":
                 self.pi5_online = self.client.is_online()
                 if key == "K3":
+                    self.state = "HOME"
+
+            elif self.state == "PUSH_QUERY":
+                if key == "K1":    # Confirm — Pi 5 will speak the answer
+                    self._send_confirm(confirmed=True)
+                    self.current_a   = self._voice_answer
+                    self.response_pg = 0
+                    self.state       = "RESPONSE"
+                elif key == "K2":  # Next page of answer
+                    self._voice_page += 1
+                elif key == "K3":  # Reject — Pi 5 discards and re-listens
+                    self._send_confirm(confirmed=False)
                     self.state = "HOME"
 
             self._render()

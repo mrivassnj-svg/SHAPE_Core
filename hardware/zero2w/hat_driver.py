@@ -298,6 +298,62 @@ def screen_thinking() -> Image.Image:
     return img
 
 
+def screen_push_query(transcript: str, answer: str, page: int = 0) -> Image.Image:
+    """
+    Voice confirmation screen — shown when Pi 5 pushes a voice result for review.
+
+    Top half  : what the mic heard (transcript)
+    Bottom half: SHAPE's answer (paginated if long)
+    K1 = CONFIRM (send answer to speaker)   K3 = REJECT (discard, re-listen)
+    """
+    img = Image.new("RGB", (240, 240), BG)
+    d   = ImageDraw.Draw(img)
+
+    # Header bar — magenta to distinguish from normal response
+    d.rectangle([0, 0, 240, 24], fill=PINK)
+    d.text((120, 12), "Voice Query", font=_font(13, True), fill=INK, anchor="mm")
+
+    # Transcript section
+    d.text((6, 28), "Heard:", font=_font(11), fill=GRY)
+    t_words, t_line, t_lines = transcript.split(), "", []
+    for w in t_words:
+        if len(t_line) + len(w) + 1 > 26:
+            t_lines.append(t_line); t_line = w
+        else:
+            t_line = (t_line + " " + w).strip()
+    if t_line:
+        t_lines.append(t_line)
+    for i, l in enumerate(t_lines[:3]):          # max 3 lines of transcript
+        d.text((6, 40 + i * 18), l, font=_font(13), fill=TEAL)
+
+    # Divider
+    d.line([(4, 100), (235, 100)], fill=BLUE, width=1)
+    d.text((6, 103), "Answer:", font=_font(11), fill=GRY)
+
+    # Answer section (paginated)
+    a_words, a_line, a_lines = answer.split(), "", []
+    for w in a_words:
+        if len(a_line) + len(w) + 1 > 26:
+            a_lines.append(a_line); a_line = w
+        else:
+            a_line = (a_line + " " + w).strip()
+    if a_line:
+        a_lines.append(a_line)
+    per_page = 5
+    start    = page * per_page
+    shown    = a_lines[start:start + per_page]
+    for i, l in enumerate(shown):
+        d.text((6, 116 + i * 20), l, font=_font(13), fill=WHT)
+    total_pages = max(1, (len(a_lines) + per_page - 1) // per_page)
+    d.text((120, 202), f"pg {page+1}/{total_pages}", font=_font(11), fill=GRY, anchor="mm")
+
+    # Action bar
+    d.line([(0, 212), (240, 212)], fill=BLUE, width=1)
+    d.text((6,   220), "K1 CONFIRM", font=_font(12, True), fill=GRN)
+    d.text((130, 220), "K3 REJECT",  font=_font(12, True), fill=RED)
+    return img
+
+
 def screen_response(text: str, page: int = 0) -> Image.Image:
     """Display a paginated agent response."""
     img = Image.new("RGB", (240, 240), BG)

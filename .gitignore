@@ -20,3 +20,8 @@ demo/output/frames/
 # IDE
 .vscode/
 .idea/
+# Editor swap / backup files
+*.swp
+*.swo
+*.kate-swp
+*~

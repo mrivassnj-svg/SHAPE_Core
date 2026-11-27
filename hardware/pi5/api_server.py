@@ -28,7 +28,7 @@ import sys
 import tempfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse
 
 import yaml
 
@@ -49,10 +49,19 @@ _SENSOR_MAX = 20
 _WHISPER_BIN   = os.getenv("WHISPER_BIN",   "/home/pi/whisper.cpp/main")
 _WHISPER_MODEL = os.getenv("WHISPER_MODEL", "/home/pi/whisper.cpp/models/ggml-tiny.en.bin")
 
+# ---------------------------------------------------------------------------
+# Voice confirmation queue
+# Holds the last voice query pending Pico 2 / Zero 2 W confirmation.
+# voice_loop.py writes here; /confirm or /reject clears it.
+# ---------------------------------------------------------------------------
+import uuid as _uuid
+_pending_voice: dict | None = None   # {"query_id", "transcript", "answer"}
+_voice_callbacks: list = []          # callables notified on confirm/reject
+
 
 class SHAPEHandler(BaseHTTPRequestHandler):
     """
-    Minimal HTTP API — five endpoints:
+    Minimal HTTP API — seven endpoints:
 
       POST /query        body: {"input": "..."}
                          returns: {"output": "..."}
@@ -67,6 +76,20 @@ class SHAPEHandler(BaseHTTPRequestHandler):
       POST /sensor       body: {"source":"pico2","temperature":24.5,...}
                          returns: {"cmd":"STATUS","text":"...","reward":0.9}
                          (also injects alert queries automatically)
+
+      POST /voice_query  body: {"transcript": "...", "answer": "..."}
+                         Registers a pending voice result for Zero 2 W
+                         confirmation. Returns {"query_id": "<uuid>"}.
+                         voice_loop.py calls this after whisper + agent.run().
+
+      POST /confirm      body: {"query_id": "...", "confirmed": true|false}
+                         Marks the pending voice result confirmed or rejected.
+                         Returns {"ok": true}. Triggers TTS on Pi 5 if
+                         confirmed=true (voice_loop.py polls /pending_voice).
+
+      GET  /pending_voice
+                         Returns the current pending voice result for the
+                         Zero 2 W to display, or {"pending": false}.
     """
 
     def _auth(self) -> bool:
@@ -100,6 +123,17 @@ class SHAPEHandler(BaseHTTPRequestHandler):
             })
         elif path == "/sensors":
             self._send_json(200, {"readings": _sensor_history})
+        elif path == "/pending_voice":
+            # Zero 2 W polls this to know if there is a voice result to confirm.
+            if _pending_voice:
+                self._send_json(200, {
+                    "pending":    True,
+                    "query_id":   _pending_voice["query_id"],
+                    "transcript": _pending_voice["transcript"],
+                    "answer":     _pending_voice["answer"],
+                })
+            else:
+                self._send_json(200, {"pending": False})
         else:
             self._send_json(404, {"error": "Not found"})
 
@@ -199,6 +233,45 @@ class SHAPEHandler(BaseHTTPRequestHandler):
                 self._send_json(500, {"error": str(exc)})
             finally:
                 os.unlink(wav_path)
+
+        elif path == "/voice_query":
+            # Called by voice_loop.py after whisper transcription + agent.run().
+            # Stores the result for Zero 2 W to poll and confirm.
+            global _pending_voice
+            transcript = body.get("transcript", "").strip()
+            answer     = body.get("answer",     "").strip()
+            if not transcript or not answer:
+                return self._send_json(400, {"error": "transcript and answer required"})
+            query_id = str(_uuid.uuid4())[:8]
+            _pending_voice = {
+                "query_id":   query_id,
+                "transcript": transcript,
+                "answer":     answer,
+            }
+            log.info("Voice query pending confirmation  id=%s  transcript=%s",
+                     query_id, transcript[:60])
+            self._send_json(200, {"query_id": query_id})
+
+        elif path == "/confirm":
+            # Called by Zero 2 W after user presses K1 (confirm) or K3 (reject)
+            # on the PUSH_QUERY screen.
+            global _pending_voice, _voice_callbacks
+            query_id  = body.get("query_id", "")
+            confirmed = body.get("confirmed", False)
+            if _pending_voice and _pending_voice["query_id"] == query_id:
+                answer = _pending_voice["answer"]
+                _pending_voice = None
+                # Notify voice_loop.py via registered callbacks
+                for cb in list(_voice_callbacks):
+                    try:
+                        cb(confirmed, answer)
+                    except Exception:
+                        pass
+                log.info("Voice query %s — %s", query_id,
+                         "CONFIRMED" if confirmed else "REJECTED")
+                self._send_json(200, {"ok": True, "confirmed": confirmed})
+            else:
+                self._send_json(400, {"error": "unknown or expired query_id"})
 
         else:
             self._send_json(404, {"error": "Not found"})
