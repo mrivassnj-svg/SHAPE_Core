@@ -1,0 +1,2 @@
+{"input": "print(hell)", "output": "[SHAPE] An internal error occurred: registry.ollama.ai/library/codellama:latest does not support tools (status code: 400)\nPlease rephrase your request or simplify the task.", "score": 1}
+{"input": "print(hello)", "output": "The final answer is \"hello\".", "score": 1}
